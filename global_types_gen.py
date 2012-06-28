@@ -60,8 +60,6 @@ excludeDictionary = False;
 COMMENT_CHAR = '#';
 
 def strHex(value, width=8, prefix=''):
-    if (value == None):
-        value = 0xFFFFFFFF;
     valueStr = hex(value)
     valueStr = valueStr.lstrip("0x")
     valueStr = valueStr.rstrip("L")
@@ -298,6 +296,9 @@ class TypeNode(Node):
     def isBaseType(self):
         return False;
     
+    def getName(self):
+        return self.name;
+    
 class BaseTypeNode(TypeNode):
     
     def __init__(self, line, address):
@@ -334,6 +335,12 @@ class StructureNode(TypeNode):
 
     def isStructure(self):
         return True;
+    
+    def getName(self):
+        if (self.name is None):
+            return "unnamed struct"
+        else:
+            return "struct " + self.name
 
 class StructureFieldNode(Node):
     
@@ -382,6 +389,9 @@ class ArrayNode(TypeNode):
     def dbgPrint(self):
         print "Array: line={0}, address={1}, typeAddress={2}, size={3}, dimsCount={4}".format(
             self.lineNum, strHex(self.address), strHex(self.typeAddress), self.size, self.rangeBounds);
+    
+    def getName(self):
+        return self.type.getName() + "".join(map(lambda x: "[{0}]".format(x), self.rangeBounds))
 
         
 class PointerNode(TypeNode):
@@ -398,6 +408,9 @@ class PointerNode(TypeNode):
     
     def isPointer(self):
         return True;
+    
+    def getName(self):
+        return self.type.getName() + "*"
 
 class VolatileNode(TypeNode):
 
@@ -412,6 +425,9 @@ class VolatileNode(TypeNode):
 
     def isVolatile(self):
         return True;
+    
+    def getName(self):
+        return self.type.getName()
 
 # Dictionary of nodes
 class Nodes:
@@ -453,6 +469,7 @@ LINE_CONSTVALUE = 25
 LINE_VOLATILETYPE = 26
 LINE_ENCODING = 27
 LINE_LINEWRAP = 28
+LINE_FORMALPARAM = 29
 
 
 LINE_TYPE_TO_STRING = (
@@ -484,7 +501,8 @@ LINE_TYPE_TO_STRING = (
 "CONSTVALUE",
 "VOLATILETYPE",
 "ENCODING",
-"LINEWRAP"
+"LINEWRAP",
+"LINEFORMALPARAM"
 );
 
 def lineTypeToString(lineType):
@@ -504,6 +522,9 @@ def parseDebugInfoCompileUnit(g0, g1, g2, g3):
 
 def parseDebugInfoVariable(g0, g1, g2, g3):       
     return (LINE_VARIABLE, g0, g1, g2, g3)
+
+def parseDebugInfoFormalParam(g0, g1, g2, g3):       
+    return (LINE_FORMALPARAM, g0, g1, g2, g3)
 
 def parseDebugInfoLocation(g0, g1, g2, g3):       
     return (LINE_LOCATION, g2, g1, g0, g3)
@@ -582,19 +603,20 @@ def parseDebugInfoLineWrap(g0, g1, g2, g3):
     
 def createLinePatterns():
     patterns = [];
+    patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_formal_parameter"                              , parseDebugInfoFormalParam))
     patterns.append((LINE_ENUMERATOR ,       "    ([0-9a-f]{8})(.+)DW_TAG_enumerator"                                    , parseDebugInfoEnumerator))
     patterns.append((LINE_NAME ,             "    ([0-9a-f]{8})( +)DW_AT_name +(.+)"                                     , parseDebugInfoName))            
     patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_variable"                                      , parseDebugInfoVariable))       
-    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location       DW_OP_addr 0x([0-9a-f]+)"        , parseDebugInfoLocation))       
-    patterns.append((LINE_TYPE ,             "    ([0-9a-f]{8})( +)DW_AT_type +.*debug_info.* +0x([0-9a-f]+)"            , parseDebugInfoType))             
+    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location +DW_OP_addr +0x([0-9a-f]+)"            , parseDebugInfoLocation))       
+    patterns.append((LINE_TYPE ,             "    ([0-9a-f]{8})( +)DW_AT_type +\.debug_info\([0-9]+\) \+ 0x([0-9a-f]+)"  , parseDebugInfoType))             
     patterns.append((LINE_TYPEDEF ,          "    ([0-9a-f]{8})(.+)DW_TAG_typedef"                                       , parseDebugInfoTypedef))        
     patterns.append((LINE_POINTERTYPE ,      "    ([0-9a-f]{8})(.+)DW_TAG_pointer_type"                                  , parseDebugInfoPointerType))     
     patterns.append((LINE_STRUCTURE ,        "    ([0-9a-f]{8})(.+)DW_TAG_structure_type"                                , parseDebugInfoStructure))       
-    patterns.append((LINE_BYTESIZE ,         "    ([0-9a-f]{8})( +)DW_AT_byte_size ([0-9]+)"                             , parseDebugInfoBytesize))        
+    patterns.append((LINE_BYTESIZE ,         "    ([0-9a-f]{8})( +)DW_AT_byte_size +([0-9]+)"                            , parseDebugInfoBytesize))        
     patterns.append((LINE_MEMBER ,           "    ([0-9a-f]{8})(.+)DW_TAG_member"                                        , parseDebugInfoMember))          
     patterns.append((LINE_MEMBERLOCATION ,   "    ([0-9a-f]{8})( +)DW_AT_data_member_location DW_OP_plus_uconst ([0-9]+)", parseDebugInfoMemberlocation)) 
     patterns.append((LINE_UNION ,            "    ([0-9a-f]{8})(.+)DW_TAG_union_type"                                    , parseDebugInfoUnion))            
-    patterns.append((LINE_SUBPROGRAM ,       "    ([0-9a-f]{8})(.+)DW_TAG_subprogram(.+)"                                , parseDebugInfoSubprogram))          
+    patterns.append((LINE_SUBPROGRAM ,       "    ([0-9a-f]{8})(.+)DW_TAG_subprogram"                                    , parseDebugInfoSubprogram))          
     patterns.append((LINE_ARRAYTYPE ,        "    ([0-9a-f]{8})(.+)DW_TAG_array_type"                                    , parseDebugInfoArrayType))          
     patterns.append((LINE_UPPERBOUND ,       "    ([0-9a-f]{8})(.+)DW_AT_upper_bound +([0-9]+)"                          , parseDebugInfoUpperBound))          
     patterns.append((LINE_BASETYPE ,         "    ([0-9a-f]{8})(.+)DW_TAG_base_type"                                     , parseDebugInfoBaseType))          
@@ -647,7 +669,7 @@ def parseDebugInfoLine(fileName, lineNum, line):
         patternIdx = patternIdx + 1
         
     if (not matchFound):
-        #printError(fileName, lineNum, False, "No match");
+        if (verboseOutput): printError(fileName, lineNum, False, "No match for: " + line);
         pass;
     else:
         #descr = getLineDescritpion(lineType, address, indent, g2, g3)
@@ -694,8 +716,10 @@ STATE_CONSTTYPE = 11
 STATE_SUBROUTINETYPE = 12
 STATE_ENUMTYPE = 13
 STATE_VOLATILETYPE = 14
-STATE_STRUCTUREMEMBER = 15
-STATE_ENUMERATOR = 16
+STATE_FORMALPARAM = 15
+STATE_SUBPROGRAM = 16
+STATE_STRUCTUREMEMBER = 17
+STATE_ENUMERATOR = 18
 
 STATE_TO_STRING = (
 	"IDLE",
@@ -713,6 +737,8 @@ STATE_TO_STRING = (
 	"SUBROUTINETYPE",
 	"ENUMTYPE",
     "VOLATILETYPE",
+    "STATE_FORMALPARAM",
+    "STATE_SUBPROGRAM",
     "STRUCTUREMEMBER",
     "STATE_ENUMERATOR"
 );
@@ -753,6 +779,45 @@ def parseDebugInfoFsm_SKIP(fileName, lineNum, dictInclude, (lineType,address,ind
     else:
         fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
 
+def parseDebugInfoFsm_FORMALPARAM(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+    global fsmState;
+
+    # formal_param sections are not supported for now
+        
+    if (lineType == LINE_LOCATION):
+        pass;
+    elif (lineType == LINE_NAME):
+        pass;
+    elif (lineType == LINE_TYPE):
+        pass;
+    elif (lineType == LINE_SYMBOLNAME):
+        pass;
+    else:
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+
+def parseDebugInfoFsm_SUBPROGRAM(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+    global fsmState;
+    
+    # subprogram sections are not supported for now (but their subsections are)
+    #    DW_AT_name           
+    #    DW_AT_decl_column    
+    #    DW_AT_decl_file      
+    #    DW_AT_decl_line      
+    #    DW_AT_declaration    
+    #    DW_AT_external       
+    #    DW_AT_type           
+    #    DW_AT_TI_symbol_name 
+        
+    if (lineType == LINE_LINEWRAP):
+        pass;
+    elif (lineType == LINE_NAME):
+        pass;
+    elif (lineType == LINE_TYPE):
+        pass;
+    elif (lineType == LINE_SYMBOLNAME):
+        pass;
+    else:
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
 
 def parseDebugInfoFsm_VARIABLE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
     global fsmState;
@@ -1033,7 +1098,7 @@ def fsmSwitchByLineDefault(fileName, lineNum, (lineType,addressStr,indent,g2,g3)
         fsmState.state = STATE_BASETYPE;
 
     elif (lineType == LINE_SUBPROGRAM):
-        fsmState.state = STATE_SKIP;
+        fsmState.state = STATE_SUBPROGRAM;
         
     elif (lineType == LINE_POINTERTYPE):
         node = PointerNode(lineNum, address);
@@ -1065,10 +1130,15 @@ def fsmSwitchByLineDefault(fileName, lineNum, (lineType,addressStr,indent,g2,g3)
         fsmState.nodes.types[address] = node; # add to the dictionary
         fsmState.curNode = node;              # set current Node
         fsmState.state = STATE_VOLATILETYPE;
+    
+    elif (lineType == LINE_FORMALPARAM):
+        fsmState.state = STATE_FORMALPARAM
         
     else:
-        printError(fileName, lineNum, False, "Expected variable or typedef instead of "+lineTypeToString(lineType)+
-                   " in state " + stateToString(fsmState.state)+" "+addressStr);
+        printError(fileName, lineNum, False,
+                   "Expected variable or typedef instead of {0} in state {1}, at {2}".format(lineTypeToString(lineType),
+                                                                                     stateToString(fsmState.state),
+                                                                                     addressStr));
 
 FSM_TABLE = (
     parseDebugInfoFsm_IDLE,
@@ -1086,7 +1156,10 @@ FSM_TABLE = (
     parseDebugInfoFsm_SUBROUTINETYPE,
     parseDebugInfoFsm_ENUMERATIONTYPE,
     parseDebugInfoFsm_VOLATILETYPE,
-    parseDebugInfoFsm_STRUCTUREMEMBER
+    parseDebugInfoFsm_FORMALPARAM,
+    parseDebugInfoFsm_SUBPROGRAM,
+    parseDebugInfoFsm_STRUCTUREMEMBER,
+    None #Enumerator
 );
     
 def parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
@@ -1125,9 +1198,9 @@ def resolveType(typeRefs, types, typeAddress):
     type = None;
     if (typeAddress in types):          
         type = types[typeAddress];                                                             
-    elif (typeAddress in typeRefs):                                                            
-        typeRef = typeRefs[typeAddress];                                                       
-        type = typeRef.type;
+    elif (typeAddress in typeRefs):
+        # typedefs may be defined as other typedefs :-S
+        return resolveType(typeRefs, types, typeRefs[typeAddress].typeAddress)
     
     return type;                                                              
 
@@ -1192,12 +1265,12 @@ def compileNode(fileName, typeRefs, types, node):
                                                                                                                   
     if (node.isArray()):                                                                                                           
         if (node.type != None): return;                                                                                          
-        typeAddress = node.typeAddress                                                                                             
+        typeAddress = node.typeAddress
         if verboseOutput: print "array = ",strHex(typeAddress), strHex(node.address)                                              
         type = resolveType(typeRefs, types, typeAddress);                                                                          
         if (type == None):                                                                                                         
             printError(fileName, node.lineNum, False,                                                                              
-                "Array Type "+strHex(node.address)+": has no type "+strHex(typeAddress));                                               
+                "Array Type {0}: has no type {1}".format(strHex(node.address), strHex(typeAddress)));                                               
         node.type = type;
                                                                                                                   
     if (node.isStructure()):                                                                                                       
@@ -1297,7 +1370,7 @@ def generateRawStructure(fileRaw, indentation, typeRefs, types, type):
             if (fieldType.isPointer()):
                 generateRawPointer(fileRaw, indentation, typeRefs, types, fieldType)
             else:
-                writeFileRaw(fileRaw, indentation+1, "Read field: name={0}, type={1}, size={2}, typeAddr={3}".format(field.name, type.name, type.size, strHex(type.address)));
+                writeFileRaw(fileRaw, indentation+1, "Read field: name={0}, type={1}, size={2}, typeAddr={3}".format(field.name, fieldType.getName(), fieldType.size, strHex(fieldType.address)));
             if verboseOutput: print "fieldType.address2", strHex(field.address), strHex(fieldType.address), field.name, strHex(type.address) 
             if (fieldType.isStructure()):
                 if verboseOutput: print "fieldType.address", strHex(field.address), strHex(fieldType.address), field.name, strHex(type.address) 
@@ -1319,7 +1392,11 @@ def generateRawVariable(fileName, fileRaw, indentation, typeRefs, types, variabl
             break;                                                                                                       
                                                                                                                          
         if verboseOutput: print "Handle variable", strHex(variable.address), strHex(variable.typeAddress), variableType; 
-        writeFileRaw(fileRaw, indentation, "{0} {1}".format(variable.name, strHex(variable.location)))               
+        
+        if variable.location:
+            writeFileRaw(fileRaw, indentation, "{0} {1}".format(variable.name, strHex(variable.location)))
+        else:
+            print "skipping variable {0} - has no address (probably in a register)".format(variable.name)
                                                                                                                          
         if (variableType.isArray()):                                                                                     
             generateRawArray(fileRaw, indentation, typeRefs, types, variableType);                                   
