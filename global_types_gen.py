@@ -111,7 +111,14 @@ def createOptionsParser():
 
     # command line options 
     parser.add_option("-t", "--types", dest="debugInfoFile", metavar="FILE", help="File containing types and variables. This is a result of ofd470. For example, \nofd470 --dwarf_display=none,dinfo,types,nodaranges,nodabbrev --obj_display=none -g --output types ROM.out", default=False);
-    parser.add_option("-i", "--include", dest="includeFile", metavar="FILE", help="File contains list of variables. List contains regular expressions separated by a new line. If list is empty or no list is specified all symbols will be processed", default=False);
+    parser.add_option("-i", "--include", dest="includeFile", metavar="FILE", 
+                      help="File contains list of variables. List contains regular expressions separated by a new line.\n"
+                      " If list is empty or no list is specified all symbols will be processed\n" 
+                                        "Examples:                                              " 
+                      "'stat' Include global variable 'stat'                                  "
+                      "'stat.aggSize.txAggVsRate cols=4' print 4 columns in a row" 
+                      "'stat.aggSize.txAggVsRate fmt=%08X' hexadecimal", 
+                      default=False);
     parser.add_option("--osh", dest="generateShell", metavar="FILE", help="Generate shell script", default=None);
     parser.add_option("--oraw", dest="generateRaw", metavar="FILE", help="Generate indented ASCII output", default=None);
     parser.add_option("-v", "--verbose", dest="verboseOutput", metavar="true/false", help="Print full debug info", default=False);
