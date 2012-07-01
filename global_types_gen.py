@@ -1560,7 +1560,12 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
     writeFileShell(fileShell, indentation, "esac");
 
 def isInDictInclude(dictInclude, s):
-    for (key, (lineNum, pattern, isRegEx)) in dictInclude.iteritems():
+    
+    for (key, includeListEntry) in dictInclude.iteritems():
+        lineNum = includeListEntry.lineNum;
+        pattern = includeListEntry.name
+        isRegEx = includeListEntry.isRegEx
+        
         if (isRegEx):
             match = re.match(pattern, s);
             if (match):
