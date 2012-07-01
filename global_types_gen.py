@@ -115,9 +115,10 @@ def createOptionsParser():
                       help="File contains list of variables. List contains regular expressions separated by a new line.\n"
                       " If list is empty or no list is specified all symbols will be processed\n" 
                                         "Examples:                                              " 
-                      "'stat' Include global variable 'stat'                                  "
-                      "'stat.aggSize.txAggVsRate cols=4' print 4 columns in a row" 
-                      "'stat.aggSize.txAggVsRate fmt=%08X' hexadecimal", 
+                      "'stat' Include global variable 'stat'                                    "
+                      "'stat.+' RegEx:include all variables 'stat*'                              "
+                      "'stat.aggSize.txAggVsRate cols=4' print 4 columns                         " 
+                      "'stat.aggSize.txAggVsRate fmt=%08X' hexadecimal                           ", 
                       default=False);
     parser.add_option("--osh", dest="generateShell", metavar="FILE", help="Generate shell script", default=None);
     parser.add_option("--oraw", dest="generateRaw", metavar="FILE", help="Generate indented ASCII output", default=None);
