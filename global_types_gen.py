@@ -224,11 +224,11 @@ def readIncludeList(fileName, fileList, dict):
             
         # variable name is alright. Let's take care of optional formats
         
-        lineWords.pop(0); # remove first entry from the arg list                              
+        lineWords.pop(0); # remove first entry from the arg list
         try:                                                 
-            (cmdOptions, _) = optionsParser.parse_args(lineWords);
+            (cmdOptions, _) = includeFileOptionsParser.parse_args(lineWords);
         except:                                              
-            printWarning(fileName, lineNum, False, "Bad options '"+lineWords+"'");
+            printError(fileName, lineNum, False, "Bad options '"+" ".join(lineWords)+"'");
             continue;
         
         columnsStr = cmdOptions.columns;
@@ -1625,8 +1625,8 @@ def createIncludeFileOptionsParser():
         "txAggVsRate --cols=4 --format=%08X                                                                ";
                                                                                                                                                         
     # command line options                                                                                                                              
-    parser.add_option("--cols", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
-    parser.add_option("--format", dest="formate", metavar="STR", help="Format string", default=None);
+    parser.add_option("--columns", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
+    parser.add_option("--format", dest="format", metavar="STR", help="Format string", default=None);
 
     return parser;                                                                                                                                          
        
