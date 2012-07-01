@@ -1469,11 +1469,12 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
         if (format1 != None): format = format1;
         
         writeFileShell(fileShell, indentation+1, 
-            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -v -n {2} '{4}/{5} \"{3} \" \"\\n\"' ".format(
+            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '{4}/{5} \"{3} \" \"\\n\"' ".format(
                 type.size/4, locationStr, type.size, format, columns, elemSize));
     else:  
         writeFileShell(fileShell, indentation+1, 
-            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -v -n {2} -C".format(type.size/4, locationStr, type.size));
+            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -C".format(
+                type.size/4, locationStr, type.size));
 
 
 def generateShellPointer(fileShell, dictInclude, indentation, typeRefs, types, type, location, prefix=""):
