@@ -112,6 +112,7 @@ def createOptionsParser():
     parser.add_option("-i", "--include", dest="includeFile", metavar="FILE", help="File contains list of variables. List contains regular expressions separated by a new line. If list is empty or no list is specified all symbols will be processed", default=False);
     parser.add_option("--osh", dest="generateShell", metavar="FILE", help="Generate shell script", default=None);
     parser.add_option("--oraw", dest="generateRaw", metavar="FILE", help="Generate indented ASCII output", default=None);
+    parser.add_option("--ort3", dest="generateRT3", metavar="FILE", help="Generate RT3 (RTTT) XML", default=None);
     parser.add_option("-v", "--verbose", dest="verboseOutput", metavar="true/false", help="Print full debug info", default=False);
     return parser;
 
@@ -127,7 +128,7 @@ def updateDictionary(dict, symbolName, flag):
         del dict[symbolName];             
         dict[symbolName] = (lineNum, destSection, flag);
     else:
-        printError("Internal", lineNum, True, "wrong size of tuple in the dictionary "+len(tup));
+        printError("Internal", lineNum, True, "wrong size of tuple in the dictionary " + len(tup));
     
 
 def checkRegex(line):
@@ -156,8 +157,8 @@ def readIncludeList(fileName, fileList, dict):
                 dict[incluePath] = (lineNum, incluePath, False);
             else:
                 (lineNumPrev, _, _) = dict[incluePath];
-                printError(fileName, lineNum, True, "Path "+incluePath+" is redefined");
-                printError(fileName, lineNumPrev, True, "Previous definition of "+incluePath);
+                printError(fileName, lineNum, True, "Path " + incluePath + " is redefined");
+                printError(fileName, lineNumPrev, True, "Previous definition of " + incluePath);
         else: # Is it a regex?
             regEx = line;
             res = checkRegex(regEx);
@@ -166,10 +167,10 @@ def readIncludeList(fileName, fileList, dict):
                      dict[regEx] = (lineNum, regEx, True);
                  else:
                      (lineNumPrev, _, _) = dict[regEx];
-                     printError(fileName, lineNum, True, "Path "+regEx+" is redefined");
-                     printError(fileName, lineNumPrev, True, "Previous definition of "+regEx);
+                     printError(fileName, lineNum, True, "Path " + regEx + " is redefined");
+                     printError(fileName, lineNumPrev, True, "Previous definition of " + regEx);
             else:
-                printError(fileName, lineNum, True, "Path "+regEx+" is not well formed regular expression");
+                printError(fileName, lineNum, True, "Path " + regEx + " is not well formed regular expression");
             
         lineNum = lineNum + 1;
 
@@ -179,11 +180,11 @@ def printNotUsedSymbols(filename, dict):
         if (len(tup) == 2):
             (lineNum, hit) = dict[symbolName];
             if (not hit):
-                printError(filename, lineNum, False, "not used "+symbolName);
+                printError(filename, lineNum, False, "not used " + symbolName);
         if (len(tup) == 4):
             (lineNum, nameNew, nameDest, hit) = dict[symbolName];
             if (not hit):
-                printError(filename, lineNum, False, "not used "+symbolName);
+                printError(filename, lineNum, False, "not used " + symbolName);
 
 def printError(fileName, lineNum, isError, message):
     if (isError):
@@ -450,7 +451,7 @@ LINE_TYPEDEF = 6
 LINE_POINTERTYPE = 7
 LINE_STRUCTURE = 8               
 LINE_BYTESIZE = 9           
-LINE_MEMBER =  10            
+LINE_MEMBER = 10            
 LINE_MEMBERLOCATION = 11   
 LINE_UNION = 12
 LINE_SUBPROGRAM = 13       
@@ -509,7 +510,7 @@ def lineTypeToString(lineType):
     if (lineType < len(LINE_TYPE_TO_STRING)):
         return LINE_TYPE_TO_STRING[lineType];
     else:
-        return 'Uknown (' + int(lineType)+')';
+        return 'Uknown (' + int(lineType) + ')';
 
 def parseDebugInfoDie(g0, g1, g2, g3):
     return (LINE_DIETABLE, None, None, None, None)
@@ -603,36 +604,36 @@ def parseDebugInfoLineWrap(g0, g1, g2, g3):
     
 def createLinePatterns():
     patterns = [];
-    patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_formal_parameter"                              , parseDebugInfoFormalParam))
-    patterns.append((LINE_ENUMERATOR ,       "    ([0-9a-f]{8})(.+)DW_TAG_enumerator"                                    , parseDebugInfoEnumerator))
-    patterns.append((LINE_NAME ,             "    ([0-9a-f]{8})( +)DW_AT_name +(.+)"                                     , parseDebugInfoName))            
-    patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_variable"                                      , parseDebugInfoVariable))       
-    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location +DW_OP_addr +0x([0-9a-f]+)"            , parseDebugInfoLocation))       
-    patterns.append((LINE_TYPE ,             "    ([0-9a-f]{8})( +)DW_AT_type +\.debug_info\([0-9]+\) \+ 0x([0-9a-f]+)"  , parseDebugInfoType))             
-    patterns.append((LINE_TYPEDEF ,          "    ([0-9a-f]{8})(.+)DW_TAG_typedef"                                       , parseDebugInfoTypedef))        
-    patterns.append((LINE_POINTERTYPE ,      "    ([0-9a-f]{8})(.+)DW_TAG_pointer_type"                                  , parseDebugInfoPointerType))     
-    patterns.append((LINE_STRUCTURE ,        "    ([0-9a-f]{8})(.+)DW_TAG_structure_type"                                , parseDebugInfoStructure))       
-    patterns.append((LINE_BYTESIZE ,         "    ([0-9a-f]{8})( +)DW_AT_byte_size +([0-9]+)"                            , parseDebugInfoBytesize))        
-    patterns.append((LINE_MEMBER ,           "    ([0-9a-f]{8})(.+)DW_TAG_member"                                        , parseDebugInfoMember))          
-    patterns.append((LINE_MEMBERLOCATION ,   "    ([0-9a-f]{8})( +)DW_AT_data_member_location DW_OP_plus_uconst ([0-9]+)", parseDebugInfoMemberlocation)) 
-    patterns.append((LINE_UNION ,            "    ([0-9a-f]{8})(.+)DW_TAG_union_type"                                    , parseDebugInfoUnion))            
-    patterns.append((LINE_SUBPROGRAM ,       "    ([0-9a-f]{8})(.+)DW_TAG_subprogram"                                    , parseDebugInfoSubprogram))          
-    patterns.append((LINE_ARRAYTYPE ,        "    ([0-9a-f]{8})(.+)DW_TAG_array_type"                                    , parseDebugInfoArrayType))          
-    patterns.append((LINE_UPPERBOUND ,       "    ([0-9a-f]{8})(.+)DW_AT_upper_bound +([0-9]+)"                          , parseDebugInfoUpperBound))          
-    patterns.append((LINE_BASETYPE ,         "    ([0-9a-f]{8})(.+)DW_TAG_base_type"                                     , parseDebugInfoBaseType))          
-    patterns.append((LINE_ADDRESSCLASS ,     "    ([0-9a-f]{8})(.+)DW_AT_address_class DW_ADDR_TI_PTR32"                 , parseDebugInfoAddressClass))          
-    patterns.append((LINE_SUBRANGETYPE ,     "    ([0-9a-f]{8})(.+)DW_AT_subrange_type"                                  , parseDebugInfoSubrangeType))          
-    patterns.append((LINE_CONSTTYPE ,        "    ([0-9a-f]{8})(.+)DW_TAG_const_type"                                    , parseDebugInfoConstType))
-    patterns.append((LINE_SUBROUTINETYPE ,   "    ([0-9a-f]{8})(.+)DW_TAG_subroutine_type"                               , parseDebugInfoSubroutineType))
-    patterns.append((LINE_SYMBOLNAME ,       "    ([0-9a-f]{8})(.+)DW_AT_accessibility\s+.+"                             , parseDebugInfoAccessibility))
-    patterns.append((LINE_ACCESSIBILITY ,    "    ([0-9a-f]{8})(.+)DW_AT_TI_symbol_name +(\S+)"                          , parseDebugInfoSymbolName))
-    patterns.append((LINE_ENUMERATIONTYPE ,  "    ([0-9a-f]{8})(.+)DW_TAG_enumeration_type"                              , parseDebugInfoEnumerationType))
-    patterns.append((LINE_CONSTVALUE ,       "    ([0-9a-f]{8})(.+)DW_AT_const_value +([0-9]+)"                          , parseDebugInfoConstValue))
-    patterns.append((LINE_VOLATILETYPE ,     "    ([0-9a-f]{8})(.+)DW_TAG_volatile_type"                                 , parseDebugInfoVolatileType))
-    patterns.append((LINE_ENCODING ,         "    ([0-9a-f]{8})(.+)DW_AT_encoding +(.+)"                                 , parseDebugInfoEncoding))
-    patterns.append((LINE_LINEWRAP ,         "                                            (\S+)"                         , parseDebugInfoLineWrap))
-    patterns.append((LINE_COMPILEUNIT ,      "    ([0-9a-f]{8})(.+)DW_TAG_compile_unit"                                  , parseDebugInfoCompileUnit))     
-    patterns.append((LINE_DIETABLE ,         "    DIE Table at Offset [0-9a-f]+"                                         , parseDebugInfoDie))
+    patterns.append((LINE_VARIABLE , "    ([0-9a-f]{8})(.+)DW_TAG_formal_parameter"                              , parseDebugInfoFormalParam))
+    patterns.append((LINE_ENUMERATOR , "    ([0-9a-f]{8})(.+)DW_TAG_enumerator"                                    , parseDebugInfoEnumerator))
+    patterns.append((LINE_NAME , "    ([0-9a-f]{8})( +)DW_AT_name +(.+)"                                     , parseDebugInfoName))            
+    patterns.append((LINE_VARIABLE , "    ([0-9a-f]{8})(.+)DW_TAG_variable"                                      , parseDebugInfoVariable))       
+    patterns.append((LINE_LOCATION , "    ([0-9a-f]{8})( +)DW_AT_location +DW_OP_addr +0x([0-9a-f]+)"            , parseDebugInfoLocation))       
+    patterns.append((LINE_TYPE , "    ([0-9a-f]{8})( +)DW_AT_type +\.debug_info\([0-9]+\) \+ 0x([0-9a-f]+)"  , parseDebugInfoType))             
+    patterns.append((LINE_TYPEDEF , "    ([0-9a-f]{8})(.+)DW_TAG_typedef"                                       , parseDebugInfoTypedef))        
+    patterns.append((LINE_POINTERTYPE , "    ([0-9a-f]{8})(.+)DW_TAG_pointer_type"                                  , parseDebugInfoPointerType))     
+    patterns.append((LINE_STRUCTURE , "    ([0-9a-f]{8})(.+)DW_TAG_structure_type"                                , parseDebugInfoStructure))       
+    patterns.append((LINE_BYTESIZE , "    ([0-9a-f]{8})( +)DW_AT_byte_size +([0-9]+)"                            , parseDebugInfoBytesize))        
+    patterns.append((LINE_MEMBER , "    ([0-9a-f]{8})(.+)DW_TAG_member"                                        , parseDebugInfoMember))          
+    patterns.append((LINE_MEMBERLOCATION , "    ([0-9a-f]{8})( +)DW_AT_data_member_location DW_OP_plus_uconst ([0-9]+)", parseDebugInfoMemberlocation)) 
+    patterns.append((LINE_UNION , "    ([0-9a-f]{8})(.+)DW_TAG_union_type"                                    , parseDebugInfoUnion))            
+    patterns.append((LINE_SUBPROGRAM , "    ([0-9a-f]{8})(.+)DW_TAG_subprogram"                                    , parseDebugInfoSubprogram))          
+    patterns.append((LINE_ARRAYTYPE , "    ([0-9a-f]{8})(.+)DW_TAG_array_type"                                    , parseDebugInfoArrayType))          
+    patterns.append((LINE_UPPERBOUND , "    ([0-9a-f]{8})(.+)DW_AT_upper_bound +([0-9]+)"                          , parseDebugInfoUpperBound))          
+    patterns.append((LINE_BASETYPE , "    ([0-9a-f]{8})(.+)DW_TAG_base_type"                                     , parseDebugInfoBaseType))          
+    patterns.append((LINE_ADDRESSCLASS , "    ([0-9a-f]{8})(.+)DW_AT_address_class DW_ADDR_TI_PTR32"                 , parseDebugInfoAddressClass))          
+    patterns.append((LINE_SUBRANGETYPE , "    ([0-9a-f]{8})(.+)DW_AT_subrange_type"                                  , parseDebugInfoSubrangeType))          
+    patterns.append((LINE_CONSTTYPE , "    ([0-9a-f]{8})(.+)DW_TAG_const_type"                                    , parseDebugInfoConstType))
+    patterns.append((LINE_SUBROUTINETYPE , "    ([0-9a-f]{8})(.+)DW_TAG_subroutine_type"                               , parseDebugInfoSubroutineType))
+    patterns.append((LINE_SYMBOLNAME , "    ([0-9a-f]{8})(.+)DW_AT_accessibility\s+.+"                             , parseDebugInfoAccessibility))
+    patterns.append((LINE_ACCESSIBILITY , "    ([0-9a-f]{8})(.+)DW_AT_TI_symbol_name +(\S+)"                          , parseDebugInfoSymbolName))
+    patterns.append((LINE_ENUMERATIONTYPE , "    ([0-9a-f]{8})(.+)DW_TAG_enumeration_type"                              , parseDebugInfoEnumerationType))
+    patterns.append((LINE_CONSTVALUE , "    ([0-9a-f]{8})(.+)DW_AT_const_value +([0-9]+)"                          , parseDebugInfoConstValue))
+    patterns.append((LINE_VOLATILETYPE , "    ([0-9a-f]{8})(.+)DW_TAG_volatile_type"                                 , parseDebugInfoVolatileType))
+    patterns.append((LINE_ENCODING , "    ([0-9a-f]{8})(.+)DW_AT_encoding +(.+)"                                 , parseDebugInfoEncoding))
+    patterns.append((LINE_LINEWRAP , "                                            (\S+)"                         , parseDebugInfoLineWrap))
+    patterns.append((LINE_COMPILEUNIT , "    ([0-9a-f]{8})(.+)DW_TAG_compile_unit"                                  , parseDebugInfoCompileUnit))     
+    patterns.append((LINE_DIETABLE , "    DIE Table at Offset [0-9a-f]+"                                         , parseDebugInfoDie))
     return patterns;
 
 PATTERNS = createLinePatterns();     
@@ -693,13 +694,13 @@ def getLineDescritpion(lineType, address, indent, g2, g3):
     if (lineType == LINE_DIETABLE):
         return lineStr + " ";
     if (lineType == LINE_NAME):
-        return indent+lineStr+" "+address+" "+g2
+        return indent + lineStr + " " + address + " " + g2
     if (lineType == LINE_LINEWRAP):
-        return lineStr+" "+g2
+        return lineStr + " " + g2
     if (lineType == LINE_COMPILEUNIT):
-        return fillBlanks(address)+lineStr
+        return fillBlanks(address) + lineStr
     else:
-        return indent+lineStr+" "+address;
+        return indent + lineStr + " " + address;
 
 STATE_IDLE = 0
 STATE_DIE = 1
@@ -757,7 +758,7 @@ def stateToString(state):
     else:
         return "StateUknown";
 
-def parseDebugInfoFsm_IDLE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_IDLE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_DIETABLE):
@@ -765,7 +766,7 @@ def parseDebugInfoFsm_IDLE(fileName, lineNum, dictInclude, (lineType,address,ind
     else:
         printError(fileName, lineNum, False, "Expected 'DIE Table at Offset...'");
 
-def parseDebugInfoFsm_SKIP(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_SKIP(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -777,9 +778,9 @@ def parseDebugInfoFsm_SKIP(fileName, lineNum, dictInclude, (lineType,address,ind
     elif (lineType == LINE_LINEWRAP):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_FORMALPARAM(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_FORMALPARAM(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
 
     # formal_param sections are not supported for now
@@ -793,9 +794,9 @@ def parseDebugInfoFsm_FORMALPARAM(fileName, lineNum, dictInclude, (lineType,addr
     elif (lineType == LINE_SYMBOLNAME):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_SUBPROGRAM(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_SUBPROGRAM(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     # subprogram sections are not supported for now (but their subsections are)
@@ -817,9 +818,9 @@ def parseDebugInfoFsm_SUBPROGRAM(fileName, lineNum, dictInclude, (lineType,addre
     elif (lineType == LINE_SYMBOLNAME):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_VARIABLE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_VARIABLE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -838,14 +839,14 @@ def parseDebugInfoFsm_VARIABLE(fileName, lineNum, dictInclude, (lineType,address
         pass;
     elif (lineType == LINE_LINEWRAP): 
         #if (not fsmState.ignoreLineWrap):
-        if verboseOutput: print "LINE_LINEWRAP: "+fsmState.curNode.name+", "+g2;  
+        if verboseOutput: print "LINE_LINEWRAP: " + fsmState.curNode.name + ", " + g2;  
         fsmState.curNode.name = fsmState.curNode.name + g2;
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
         
 
-def parseDebugInfoFsm_TYPEDEF(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_TYPEDEF(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -855,9 +856,9 @@ def parseDebugInfoFsm_TYPEDEF(fileName, lineNum, dictInclude, (lineType,address,
         fsmState.curNode.typeAddress = int(address, 16); 
         fsmState.state = STATE_COMPILEUNIT;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
     
-def parseDebugInfoFsm_STRUCTURE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_STRUCTURE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -882,9 +883,9 @@ def parseDebugInfoFsm_STRUCTURE(fileName, lineNum, dictInclude, (lineType,addres
     elif (lineType == LINE_ACCESSIBILITY):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_STRUCTUREMEMBER(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_STRUCTUREMEMBER(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -902,9 +903,9 @@ def parseDebugInfoFsm_STRUCTUREMEMBER(fileName, lineNum, dictInclude, (lineType,
         fsmState.state = STATE_STRUCTURE;
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_UNION(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_UNION(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -923,17 +924,17 @@ def parseDebugInfoFsm_UNION(fileName, lineNum, dictInclude, (lineType,address,in
     elif (lineType == LINE_SYMBOLNAME):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
 
-def parseDebugInfoFsm_ARRAYTYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_ARRAYTYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_BYTESIZE):
         fsmState.curNode.size = int(g2, 10);
         pass;
     elif (lineType == LINE_TYPE):
-        if verboseOutput: print "Array: fsmState.curNode.typeAddress = "+address;  
+        if verboseOutput: print "Array: fsmState.curNode.typeAddress = " + address;  
         fsmState.curNode.typeAddress = int(address, 16);
         pass;
     elif (lineType == LINE_SUBRANGETYPE):
@@ -944,9 +945,9 @@ def parseDebugInfoFsm_ARRAYTYPE(fileName, lineNum, dictInclude, (lineType,addres
         # print fsmState.curNode, fsmState.curNode.rangeBounds, dim
         pass;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_POINTERTYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_POINTERTYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_ADDRESSCLASS):
@@ -955,27 +956,27 @@ def parseDebugInfoFsm_POINTERTYPE(fileName, lineNum, dictInclude, (lineType,addr
         fsmState.curNode.typeAddress = int(address, 16);
         fsmState.state = STATE_COMPILEUNIT;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_CONSTTYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_CONSTTYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_TYPE):
         fsmState.curNode.typeAddress = int(address, 16);
         fsmState.state = STATE_COMPILEUNIT;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
         
-def parseDebugInfoFsm_VOLATILETYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_VOLATILETYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_TYPE):
         fsmState.curNode.typeAddress = int(address, 16);
         fsmState.state = STATE_COMPILEUNIT;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_ENUMERATIONTYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_ENUMERATIONTYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_BYTESIZE):
@@ -992,13 +993,13 @@ def parseDebugInfoFsm_ENUMERATIONTYPE(fileName, lineNum, dictInclude, (lineType,
         fsmState.curNode.members.append((fsmState.curEnumerator, val));
         pass;
     elif (lineType == LINE_LINEWRAP):
-        fsmState.curEnumerator = fsmState.curEnumerator+g2;
+        fsmState.curEnumerator = fsmState.curEnumerator + g2;
         pass;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
         
 
-def parseDebugInfoFsm_SUBROUTINETYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_SUBROUTINETYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_TYPE):
@@ -1006,9 +1007,9 @@ def parseDebugInfoFsm_SUBROUTINETYPE(fileName, lineNum, dictInclude, (lineType,a
     elif (lineType == LINE_SYMBOLNAME):
         pass;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
-def parseDebugInfoFsm_BASETYPE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_BASETYPE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -1022,10 +1023,10 @@ def parseDebugInfoFsm_BASETYPE(fileName, lineNum, dictInclude, (lineType,address
             fsmState.curNode.isSigned = False;
         pass;
     else: 
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
 
 
-def parseDebugInfoFsm_DIE(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_DIE(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_COMPILEUNIT):
@@ -1035,10 +1036,10 @@ def parseDebugInfoFsm_DIE(fileName, lineNum, dictInclude, (lineType,address,inde
         fsmState.state = STATE_COMPILEUNIT;
         
     else:
-        printError(fileName, lineNum, False, "Expected variable or typedef instead of "+lineTypeToString(lineType)+
+        printError(fileName, lineNum, False, "Expected variable or typedef instead of " + lineTypeToString(lineType) + 
                    " in state " + stateToString(fsmState.state));
 
-def parseDebugInfoFsm_COMPILEUNIT(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm_COMPILEUNIT(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     
     if (lineType == LINE_NAME):
@@ -1046,10 +1047,10 @@ def parseDebugInfoFsm_COMPILEUNIT(fileName, lineNum, dictInclude, (lineType,addr
     elif (lineType == LINE_LINEWRAP):
         pass;
     else:
-        fsmSwitchByLineDefault(fileName, lineNum, (lineType,address,indent,g2,g3));
+        fsmSwitchByLineDefault(fileName, lineNum, (lineType, address, indent, g2, g3));
     
 
-def fsmSwitchByLineDefault(fileName, lineNum, (lineType,addressStr,indent,g2,g3)):
+def fsmSwitchByLineDefault(fileName, lineNum, (lineType, addressStr, indent, g2, g3)):
     global fsmState;
     
     address = None;
@@ -1162,7 +1163,7 @@ FSM_TABLE = (
     None #Enumerator
 );
     
-def parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3)):
+def parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3)):
     global fsmState;
     fsmStateOld = fsmState.state;
     
@@ -1172,9 +1173,9 @@ def parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType,address,indent,g
     if (fsmState.state < len(FSM_TABLE)):
         parseDebugInfo = FSM_TABLE[fsmState.state];
     else:
-        print "Unknown state "+stateToString(fsmState.state);
+        print "Unknown state " + stateToString(fsmState.state);
         
-    parseDebugInfo(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3));
+    parseDebugInfo(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3));
 
     if ((fsmState.state != STATE_SKIP) and (fsmState.state != STATE_IDLE)):
         descr = getLineDescritpion(lineType, address, indent, g2, g3)
@@ -1186,9 +1187,9 @@ def parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType,address,indent,g
 def parseDebugInfo(fileName, file, dictInclude):
     lineNum = 1
     for line in file:
-        (matchFound, lineType, address,indent,g2,g3) = parseDebugInfoLine(fileName, lineNum, line)
+        (matchFound, lineType, address, indent, g2, g3) = parseDebugInfoLine(fileName, lineNum, line)
         if (matchFound):
-            parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType,address,indent,g2,g3))
+            parseDebugInfoFsm(fileName, lineNum, dictInclude, (lineType, address, indent, g2, g3))
         lineNum = lineNum + 1;
         
     nodes = fsmState.nodes;
@@ -1216,14 +1217,14 @@ def compileRefType(fileName, typeRefs, types, typeAddressIn):
     while (typeAddress in typeRefs):     
         typeRef = typeRefs[typeAddress];
         typeName = typeRef.name;
-        if verboseOutput: print "typeRefLoop "+strHex(typeAddress)+", name="+typeName;  
+        if verboseOutput: print "typeRefLoop " + strHex(typeAddress) + ", name=" + typeName;  
         typeRefType = resolveType(typeRefs, types, typeRef.typeAddress); 
         if (typeRefType != None):
             break;
         typeAddress = typeRef.typeAddress;
 
     if (typeRefType != None):
-        if verboseOutput: print "compile:typeRefType != None "+strHex(typeAddress)+", name="+typeName;  
+        if verboseOutput: print "compile:typeRefType != None " + strHex(typeAddress) + ", name=" + typeName;  
         typeAddress = typeAddressIn
         while (typeAddress in typeRefs):     
             typeRef = typeRefs[typeAddress];
@@ -1234,21 +1235,21 @@ def compileRefType(fileName, typeRefs, types, typeAddressIn):
 
 def compileNode(fileName, typeRefs, types, node):
     
-    if verboseOutput: print "Compile type",strHex(node.address)                 
+    if verboseOutput: print "Compile type", strHex(node.address)                 
     if (node.isVolatile()):                                                                                                    
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress                                                                                             
         if (typeAddress == None): return;                                                                                                              
-        if verboseOutput: print "volatile = ",strHex(typeAddress), strHex(node.address)                                           
+        if verboseOutput: print "volatile = ", strHex(typeAddress), strHex(node.address)                                           
         type = resolveType(typeRefs, types, typeAddress);                                                                          
         if (type == None):                                                                                                         
-            printError(fileName, node.lineNum, False,                                                                              
-                "volatile Type "+strHex(node.address)+": has no type "+strHex(typeAddress));                                       
+            printError(fileName, node.lineNum, False,
+                "volatile Type " + strHex(node.address) + ": has no type " + strHex(typeAddress));                                       
         else:                                                                                                                      
-            if verboseOutput: print "volatile = ",strHex(typeAddress), strHex(type.address), type.name, type.size
+            if verboseOutput: print "volatile = ", strHex(typeAddress), strHex(type.address), type.name, type.size
             node.type = type;
             if ((type.isVolatile() and type.type != None)):  # if this is volatile const (type inside of type)
-                if verboseOutput: print "type.isVolatile() and type.type != None",strHex(typeAddress), strHex(type.address)
+                if verboseOutput: print "type.isVolatile() and type.type != None", strHex(typeAddress), strHex(type.address)
                 node.type = type.type;
                                                                                                                   
                                                                                                                   
@@ -1256,20 +1257,20 @@ def compileNode(fileName, typeRefs, types, node):
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress                                                                                             
         if (typeAddress == None): return;                                                                                                              
-        if verboseOutput: print "pointer = ",strHex(typeAddress), strHex(node.address)                                            
+        if verboseOutput: print "pointer = ", strHex(typeAddress), strHex(node.address)                                            
         type = resolveType(typeRefs, types, typeAddress);                                                                          
         if (type == None):                                                                                                         
-            printError(fileName, node.lineNum, False,                                                                              
-                "pointer Type "+strHex(node.address)+": has no type "+strHex(typeAddress));                                               
+            printError(fileName, node.lineNum, False,
+                "pointer Type " + strHex(node.address) + ": has no type " + strHex(typeAddress));                                               
         node.type = type;
                                                                                                                   
     if (node.isArray()):                                                                                                           
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress
-        if verboseOutput: print "array = ",strHex(typeAddress), strHex(node.address)                                              
+        if verboseOutput: print "array = ", strHex(typeAddress), strHex(node.address)                                              
         type = resolveType(typeRefs, types, typeAddress);                                                                          
         if (type == None):                                                                                                         
-            printError(fileName, node.lineNum, False,                                                                              
+            printError(fileName, node.lineNum, False,
                 "Array Type {0}: has no type {1}".format(strHex(node.address), strHex(typeAddress)));                                               
         node.type = type;
                                                                                                                   
@@ -1278,8 +1279,8 @@ def compileNode(fileName, typeRefs, types, node):
             typeAddress = field.typeAddress;                                                                                       
             type = resolveType(typeRefs, types, typeAddress);                                                                      
             if (type == None):                                                                                                     
-                printError(fileName, node.lineNum, False,                                                                          
-                    "Structure type "+strHex(node.address)+": No type for field "+ field.name+" address "+strHex(typeAddress));
+                printError(fileName, node.lineNum, False,
+                    "Structure type " + strHex(node.address) + ": No type for field " + field.name + " address " + strHex(typeAddress));
             else:
                 compileNode(fileName, typeRefs, types, type) # recursive call
                 if (type.isVolatile()): 
@@ -1292,7 +1293,7 @@ def compileNode(fileName, typeRefs, types, node):
 def compileTypes(fileName, typeRefs, types):
     
     for (key, node) in typeRefs.iteritems():
-        if verboseOutput: print "typeRefAddress = ",strHex(node.address)
+        if verboseOutput: print "typeRefAddress = ", strHex(node.address)
         compileRefType(fileName, typeRefs, types, node.address);
 
     for (key, node) in types.iteritems():
@@ -1306,21 +1307,21 @@ def compileDictionary(fileName, typeRefs, types, variables):
     for variable in variables:
         typeAddress = variable.typeAddress;
         typeName = None
-        if verboseOutput: print variable.name+":type "+strHex(typeAddress);
+        if verboseOutput: print variable.name + ":type " + strHex(typeAddress);
         variableType = resolveType(typeRefs, types, typeAddress);  
         if (variableType != None):     
             typeName = variableType.name;
-            if verboseOutput: print variable.name+":typeAddress=", strHex(variableType.address), strHex(variable.address);
+            if verboseOutput: print variable.name + ":typeAddress=", strHex(variableType.address), strHex(variable.address);
 
         if (variableType != None):
-            if verboseOutput: print variable.name+":variableType != None", strHex(variableType.address), strHex(variable.address);  
+            if verboseOutput: print variable.name + ":variableType != None", strHex(variableType.address), strHex(variable.address);  
             variable.type = variableType;
             if ((variable.type != None) and variable.type.isVolatile()): # if this is volatile const (type inside of type)
-                if verboseOutput: print variable.name+":variableType.isVolatile()", strHex(variableType.address), strHex(variable.address);
+                if verboseOutput: print variable.name + ":variableType.isVolatile()", strHex(variableType.address), strHex(variable.address);
                 variable.type = variable.type.type;
         else:
-            printError(fileName, variable.lineNum, False, 
-                "Variable "+strHex(variable.address)+": No type for address "+strHex(typeAddress));
+            printError(fileName, variable.lineNum, False,
+                "Variable " + strHex(variable.address) + ": No type for address " + strHex(typeAddress));
 
 def getIndentation(indentation):
     s = " " * 4 * indentation;
@@ -1332,7 +1333,7 @@ def writeFileRaw(fileRaw, indentation, s):
 def writeFileShellComment(fileShell, indentation, s):
     fileShell.write(getIndentation(indentation) + "# " + s + "\n");
         
-def writeFileShell(fileShell, indentation, s, newLine = True):
+def writeFileShell(fileShell, indentation, s, newLine=True):
     if (newLine):
         fileShell.write(getIndentation(indentation) + s + "\n");
     else:
@@ -1370,7 +1371,7 @@ def generateRawStructure(fileRaw, indentation, typeRefs, types, type):
             if (fieldType.isPointer()):
                 generateRawPointer(fileRaw, indentation, typeRefs, types, fieldType)
             else:
-                writeFileRaw(fileRaw, indentation+1, "Read field: name={0}, type={1}, size={2}, typeAddr={3}".format(field.name, fieldType.getName(), fieldType.size, strHex(fieldType.address)));
+                writeFileRaw(fileRaw, indentation + 1, "Read field: name={0}, type={1}, size={2}, typeAddr={3}".format(field.name, fieldType.getName(), fieldType.size, strHex(fieldType.address)));
             if verboseOutput: print "fieldType.address2", strHex(field.address), strHex(fieldType.address), field.name, strHex(type.address) 
             if (fieldType.isStructure()):
                 if verboseOutput: print "fieldType.address", strHex(field.address), strHex(fieldType.address), field.name, strHex(type.address) 
@@ -1418,7 +1419,7 @@ def generateRawVariable(fileName, fileRaw, indentation, typeRefs, types, variabl
             generateRawBaseType(fileRaw, indentation, typeRefs, types, variableType);                                
             break;                                                                                                       
                                                                                                                          
-        printError(fileName, variable.lineNum, False,                                                                    
+        printError(fileName, variable.lineNum, False,
             "Variable={0}: No handling for type {1}".format(strHex(variable.address), strHex(variable.type.address)));   
         break;                                                                                                           
     
@@ -1438,20 +1439,20 @@ def generateShellArray(fileShell, indentation, typeRefs, types, type, location, 
     locationStr = strHex(location)
     indentationStr = getIndentation(indentation);
 
-    if ( (type.type != None) and type.type.isStructure() and (len(type.rangeBounds) == 1) ):
+    if ((type.type != None) and type.type.isStructure() and (len(type.rangeBounds) == 1)):
         dim = type.rangeBounds[0];
         elemSize = type.type.size;
         for i in range(dim):
-            generateShellStructure(fileShell, indentation, typeRefs, types, type.type, location+elemSize*i);
+            generateShellStructure(fileShell, indentation, typeRefs, types, type.type, location + elemSize * i);
     else:
-        writeFileShell(fileShell, indentation+1, 
-            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -n {2} -C".format(type.size/4, locationStr, type.size));  
+        writeFileShell(fileShell, indentation + 1,
+            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -n {2} -C".format(type.size / 4, locationStr, type.size));  
 
 
 def generateShellPointer(fileShell, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     locationStr = strHex(location)
-    writeFileShell(fileShell, indentation, 
+    writeFileShell(fileShell, indentation,
         "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -n 4 -e '1/4 \"%04x\\n\"'".format(locationStr));  
     pass;
 
@@ -1463,14 +1464,14 @@ def generateShellStructure(fileShell, indentation, typeRefs, types, type, locati
         if (field.type != None):
             
             fieldType = field.type;
-            fieldLocation = location+field.location;
+            fieldLocation = location + field.location;
             fieldName = field.name;
             
             if (fieldType.isPointer()):
-                generateShellPointer(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellPointer(fileShell, indentation + 1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isBaseType()):
-                generateShellBaseType(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellBaseType(fileShell, indentation + 1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isArray()):
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
@@ -1478,7 +1479,7 @@ def generateShellStructure(fileShell, indentation, typeRefs, types, type, locati
                 
             elif (fieldType.isStructure()):
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
-                generateShellStructure(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellStructure(fileShell, indentation + 1, typeRefs, types, fieldType, fieldLocation, fieldName)
 
         else:  
             printError("", 1, False, "Skip field: name={0}".format(fieldName));
@@ -1487,7 +1488,7 @@ def generateShellStructure(fileShell, indentation, typeRefs, types, type, locati
 def generateShellBaseType(fileShell, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     locationStr = strHex(location)
-    writeFileShell(fileShell, indentation, 
+    writeFileShell(fileShell, indentation,
         "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -n 4 -e '1/4 \"{2}{1} %04x\\n\"'".format(locationStr, prefix, indentationStr));  
 
 def generateShellVariable(fileName, fileShell, indentation, typeRefs, types, variable, variableType):
@@ -1502,36 +1503,36 @@ def generateShellVariable(fileName, fileShell, indentation, typeRefs, types, var
                                                                                                                          
         if (variableType.isArray()):                                                  
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellArray(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                   
+            generateShellArray(fileShell, indentation + 1, typeRefs, types, variableType, variableLocation);                                   
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isPointer()):                                                                                   
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellPointer(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                 
+            generateShellPointer(fileShell, indentation + 1, typeRefs, types, variableType, variableLocation);                                 
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isStructure()):                                                                                 
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
             writeFileShellComment(fileShell, indentation, "{0} type={1}, bytes={2}".format(variable.name, variableType.name, variableType.size))                                   
-            generateShellStructure(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                               
+            generateShellStructure(fileShell, indentation + 1, typeRefs, types, variableType, variableLocation);                               
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isBaseType()):                                                                                  
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellBaseType(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                
+            generateShellBaseType(fileShell, indentation + 1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isUnion()):                                                                                     
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellBaseType(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                
+            generateShellBaseType(fileShell, indentation + 1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
-        printError(fileName, variable.lineNum, False,                                                                    
+        printError(fileName, variable.lineNum, False,
             "Variable={0}: No handling for type {1}".format(strHex(variable.address), strHex(variable.type.address)));   
         break;                                                                                                           
     
@@ -1546,7 +1547,7 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
         if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)): 
             generateShellVariable(fileName, fileShell, indentation, typeRefs, types, variable, variable.type)
     writeFileShell(fileShell, indentation, "*)".format(variable.name))                                   
-    writeFileShell(fileShell, indentation+1, "echo Unknown variable $1")                                   
+    writeFileShell(fileShell, indentation + 1, "echo Unknown variable $1")                                   
     writeFileShell(fileShell, indentation, "esac");
 
 def isInDictInclude(dictInclude, s):
@@ -1561,8 +1562,77 @@ def isInDictInclude(dictInclude, s):
 
     return False;
         
+class RT3Node:
+    def __init__(self, path, name, address, typ, size):
+        self.path = path
+        self.name = name
+        self.address = address
+        self.typ = typ
+        self.size = size
     
-       
+    def toString(self):
+        return  "<global path=\"%s\" name=\"%s\" address=\"0x%x\" type=\"%s\" size=\"%d\" value=\"\"/>" % (self.path, self.name, self.address, self.typ, self.size)
+
+class RT3ArrayNode(RT3Node):
+    def __init__(self, path, name, address, typ, size, dim):
+        RT3Node.__init__(self, path, name, address, typ, size)
+        self.dim = dim
+    
+    def toString(self):
+        dimstr = ",".join(map(lambda x: str(x), self.dim))
+        return  "<global path=\"%s\" name=\"%s\" address=\"0x%x\" type=\"%s\" size=\"%d\" dim=\"%s\" value=\"\"/>" % (self.path, self.name, self.address, self.typ, self.size or 0, dimstr)
+
+def generateRT3(fileName, dictInclude, fileRaw, typeRefs, types, variables):
+    def getTypeStr(typ):
+        if isinstance(typ, BaseTypeNode):
+            sign = "unsigned " if typ.isSigned else ""
+            typename = typ.name or ""
+            return "%s%s" % (sign, typename)        
+    
+        if isinstance(typ, PointerNode):
+            if typ.type == None:
+                typname = "void"           # it's a pointer to an anonymous type (probably struct/union)
+#            elif typ.type in path:
+#                typname = typ.type.name    # avoid loops (e.g. struct types that contain pointer to their own type)
+            elif isinstance(typ.type, ArrayNode):
+                typname = "void"            # RTTT XML format does not support pointers to arrays
+            elif isinstance(typ.type, StructureNode):
+                typname = typ.type.name    # RTTT XML format does not support pointers of structs
+            else:
+                typname = getTypeStr(typ.type)
+            return typname or "" + "*"
+
+        if isinstance(typ, (TypeRefNode, VolatileNode)):
+            return getTypeStr(typ.type)
+
+    def generateRT3Node(node, path):
+        if isinstance(node, (VariableNode,StructureFieldNode)):
+            if len(path)>0:
+                pathstr = "/".join(map(lambda n: n.name or "None", path)) + "/" + node.name
+            else:
+                pathstr = node.name
+            
+            res = []
+            if isinstance(node.type, StructureNode):
+                res.append(RT3Node(pathstr, node.name, node.address, node.type.name, node.type.size))
+                path.append(node)
+                for f in node.type.fields:
+                    res.extend(generateRT3Node(f, path))
+                path.pop()
+            elif isinstance(node.type, ArrayNode):
+                res.append(RT3ArrayNode(pathstr, node.name, node.address, getTypeStr(node.type),node.type.size, node.type.rangeBounds))
+            else:
+                res.append(RT3Node(pathstr, node.name, node.address, getTypeStr(node.type), node.type.size or 4))
+
+            return res
+        
+    fileRaw.write("<gt_root xml_ver=\"1.0\" fw_ver=\"8.1.0.0.99\">\n")
+    for variable in variables:
+        if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)):
+            rt3nodes = generateRT3Node(variable, [])
+            fileRaw.write("\n".join(map(lambda n: n.toString(), rt3nodes)) + "\n")
+    fileRaw.write("</gt_root>")
+
 def mainLoop():
     global verboseOutput; 
     global cmdOptions;
@@ -1635,6 +1705,14 @@ def mainLoop():
                 print 'Failed to open file "{0}" for writing'.format(fileName);
                 break;
             generateRaw(fileName, dictInclude, fileRaw, typeRefs, types, variables);
+            
+        if (cmdOptions.generateRT3 != None):
+            fileName = cmdOptions.generateRT3
+            (openOk, fileRaw) = openFile(fileName, "wt")
+            if (not openOk):
+                print 'Failed to open file "{0}" for writing'.format(fileName);
+                break;
+            generateRT3(fileName, dictInclude, fileRaw, typeRefs, types, variables);
             
         for node in fsmState.nodes.variables:
             #node.dbgPrint();
