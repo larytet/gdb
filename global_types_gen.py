@@ -1615,8 +1615,11 @@ def findInDictInclude(dictInclude, s):
 
 def createIncludeFileOptionsParser():                                                                                                                     
     # create parser for the command line options                                                                                                        
-    parser = CommandParser();
-    parser.description =  "Examples:                                                                       "+\
+    parser = CommandParser(add_help_option=False);
+    parser.usage = "variable_name [options]";
+    parser.description = "Include list file contains list of variables to be included in the output. "+\
+        "Every line should contain variable name and optional format flag "+\
+        "Examples:                                                                       "+\
         "stat                         # Include global variable 'stat'                                     "+\
         "re:stat.+                    # RegEx:include all variables 'stat*'                                "+\
         "txAggVsRate --cols=4 --format=%08X                                                                ";
