@@ -1441,7 +1441,7 @@ def generateRaw(fileName, dictInclude, fileRaw, typeRefs, types, variables):
 
 
 
-def generateShellArray(fileShell, indentation, typeRefs, types, type, location, prefix=""):
+def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, type, location, name):
     indentationStr = getIndentation(indentation);
     
     dims = getArrayDimensionString(type);
@@ -1452,21 +1452,39 @@ def generateShellArray(fileShell, indentation, typeRefs, types, type, location, 
         dim = type.rangeBounds[0];
         elemSize = type.type.size;
         for i in range(dim):
-            generateShellStructure(fileShell, indentation, typeRefs, types, type.type, location+elemSize*i);
-    else:
+            generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type.type, location+elemSize*i);
+    elif (type.type.isBaseType()):
+        elemSize = type.type.size;
+        if (elemSize == 1):
+            format = "%02X"
+            columns = 16;
+        elif (elemSize == 2):
+            format = "%04X"
+            columns = 16;
+        elif (elemSize == 4):
+            format = "%08X"
+            columns = 8;
+        (_, columns1, format1) = findInDictInclude(dictInclude, name);
+        if (columns1 != None): columns = columns1;
+        if (format1 != None): format = format1;
+        
         writeFileShell(fileShell, indentation+1, 
-            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -n {2} -C".format(type.size/4, locationStr, type.size));  
+            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -v -n {2} '{4}/{5} \"{3} \" \"\\n\"' ".format(
+                type.size/4, locationStr, type.size, format, columns, elemSize));
+    else:  
+        writeFileShell(fileShell, indentation+1, 
+            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM | hexdump -v -n {2} -C".format(type.size/4, locationStr, type.size));
 
 
-def generateShellPointer(fileShell, indentation, typeRefs, types, type, location, prefix=""):
+def generateShellPointer(fileShell, dictInclude, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     locationStr = strHex(location)
     writeFileShell(fileShell, indentation, 
-        "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -n 4 -e '1/4 \"%04x\\n\"'".format(locationStr));  
+        "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -v -n 4 -e '1/4 \"%04x\\n\"'".format(locationStr));  
     pass;
 
 
-def generateShellStructure(fileShell, indentation, typeRefs, types, type, location, prefix=""):
+def generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     writeFileShell(fileShell, indentation, "echo '{2}type={0}, bytes={1}'".format(type.name, type.size, indentationStr))                                   
     for field in type.fields:
@@ -1477,30 +1495,30 @@ def generateShellStructure(fileShell, indentation, typeRefs, types, type, locati
             fieldName = field.name;
             
             if (fieldType.isPointer()):
-                generateShellPointer(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellPointer(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isBaseType()):
-                generateShellBaseType(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isArray()):
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
-                generateShellArray(fileShell, indentation, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif (fieldType.isStructure()):
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
-                generateShellStructure(fileShell, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
+                generateShellStructure(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
 
         else:  
             printError("", 1, False, "Skip field: name={0}".format(fieldName));
         
 
-def generateShellBaseType(fileShell, indentation, typeRefs, types, type, location, prefix=""):
+def generateShellBaseType(fileShell, dictInclude, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     locationStr = strHex(location)
     writeFileShell(fileShell, indentation, 
-        "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -n 4 -e '1/4 \"{2}{1} %04x\\n\"'".format(locationStr, prefix, indentationStr));  
+        "dd bs=4 count=1 skip=$((0x{0}/4))  if=$DEV_MEM  2> /dev/null  | hexdump -v -n 4 -e '1/4 \"{2}{1} %04x\\n\"'".format(locationStr, prefix, indentationStr));  
 
-def generateShellVariable(fileName, fileShell, indentation, typeRefs, types, variable, variableType):
+def generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRefs, types, variable, variableType):
     indentationStr = getIndentation(indentation);
     while (True):
         if (variableType == None):                                                                                       
@@ -1512,32 +1530,32 @@ def generateShellVariable(fileName, fileShell, indentation, typeRefs, types, var
                                                                                                                          
         if (variableType.isArray()):                                                  
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellArray(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                   
+            generateShellArray(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation, variable.name);                                   
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isPointer()):                                                                                   
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellPointer(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                 
+            generateShellPointer(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                 
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isStructure()):                                                                                 
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
             writeFileShellComment(fileShell, indentation, "{0} type={1}, bytes={2}".format(variable.name, variableType.name, variableType.size))                                   
-            generateShellStructure(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                               
+            generateShellStructure(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                               
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isBaseType()):                                                                                  
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellBaseType(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                
+            generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isUnion()):                                                                                     
             writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellBaseType(fileShell, indentation+1, typeRefs, types, variableType, variableLocation);                                
+            generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
@@ -1553,8 +1571,8 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
     writeFileShellComment(fileShell, indentation, "export DEV_MEM=/sys/kernel/debug/ieee80211/phy0/wlcore/mem");
     writeFileShell(fileShell, indentation, "case $1 in");
     for variable in variables:
-        if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)): 
-            generateShellVariable(fileName, fileShell, indentation, typeRefs, types, variable, variable.type)
+        if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)):
+            generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRefs, types, variable, variable.type)
     writeFileShell(fileShell, indentation, "*)".format(variable.name))                                   
     writeFileShell(fileShell, indentation+1, "echo Unknown variable $1")                                   
     writeFileShell(fileShell, indentation, "esac");
@@ -1597,11 +1615,10 @@ def findInDictInclude(dictInclude, s):
 def createIncludeFileOptionsParser():                                                                                                                     
     # create parser for the command line options                                                                                                        
     parser = CommandParser();
-    parser.description =  "Examples:                                                                           "+\
-        "stat                         # Include global variable 'stat'                                                 "+\
-        "re:stat.+                    # RegEx:include all variables 'stat*'                                       "+\
-        "stat.aggSize.txAggVsRate --cols=4                                                        "+ \
-        "stat.aggSize.txAggVsRate --format=%08X                                                   "; 
+    parser.description =  "Examples:                                                                       "+\
+        "stat                         # Include global variable 'stat'                                     "+\
+        "re:stat.+                    # RegEx:include all variables 'stat*'                                "+\
+        "txAggVsRate --cols=4 --format=%08X                                                                ";
                                                                                                                                                         
     # command line options                                                                                                                              
     parser.add_option("--cols", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
