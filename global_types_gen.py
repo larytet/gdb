@@ -59,6 +59,16 @@ includeDictionary = False;
 excludeDictionary = False;
 COMMENT_CHAR = '#';
 
+def convertToInt(s, base):
+    value = None;
+    try:
+        value = int(s, base);
+        result = True;
+    except:
+        print "Bad formed number '{0}'".format(s);
+        result = False;
+    return (result, value);
+
 def strHex(value, width=8, prefix=''):
     if (value == None):
         value = 0xFFFFFFFF;
@@ -113,13 +123,10 @@ def createOptionsParser():
     parser.add_option("-t", "--types", dest="debugInfoFile", metavar="FILE", help="File containing types and variables. This is a result of ofd470. For example, \nofd470 --dwarf_display=none,dinfo,types,nodaranges,nodabbrev --obj_display=none -g --output types ROM.out", default=False);
     parser.add_option("-i", "--include", dest="includeFile", metavar="FILE", 
                       help="File contains list of variables. List contains regular expressions separated by a new line.\n"
-                      " If list is empty or no list is specified all symbols will be processed\n" 
-                                        "Examples:                                              " 
-                      "'stat' Include global variable 'stat'                                    "
-                      "'stat.+' RegEx:include all variables 'stat*'                              "
-                      "'stat.aggSize.txAggVsRate cols=4' print 4 columns                         " 
-                      "'stat.aggSize.txAggVsRate fmt=%08X' hexadecimal                           ", 
+                      "If list is empty or no list is specified all symbols will be processed\n" 
+                      "Use --ihelp to see include file help                                     ",
                       default=False);
+    parser.add_option("--ihelp", dest="printIncludeFileHelp", metavar="true/false", help="Show include file help", default=False);
     parser.add_option("--osh", dest="generateShell", metavar="FILE", help="Generate shell script", default=None);
     parser.add_option("--oraw", dest="generateRaw", metavar="FILE", help="Generate indented ASCII output", default=None);
     parser.add_option("-v", "--verbose", dest="verboseOutput", metavar="true/false", help="Print full debug info", default=False);
@@ -149,39 +156,92 @@ def checkRegex(line):
     
     return res;
 
+def readIncludeListVariable(fileName, lineNum, fileList, dict, inclueVariable):
+    ref = None;
+    
+    incluePath = inclueVariable
+    if (not incluePath in dict):
+        ref = IncludeListEntry(lineNum, incluePath, False)
+        dict[incluePath] = ref;
+    else:
+        (lineNumPrev, _, _) = dict[incluePath];
+        printError(fileName, lineNum, True, "Path "+incluePath+" is redefined");
+        printError(fileName, lineNumPrev, True, "Previous definition of "+incluePath);
+        
+    return ref;
+
+def readIncludeListVariableRe(fileName, lineNum, fileList, dict, inclueVariableRe):
+    ref = None;
+
+    regEx = inclueVariableRe;                                                                           
+    res = checkRegex(regEx);                                                                                
+    if (res):                                                                                               
+         if (not regEx in dict):
+             ref = IncludeListEntry(lineNum, regEx, True);                                                                       
+             dict[regEx] = ref                                                          
+         else:                                                                                              
+             (lineNumPrev, _, _) = dict[regEx];                                                             
+             printError(fileName, lineNum, True, "Path "+regEx+" is redefined");                            
+             printError(fileName, lineNumPrev, True, "Previous definition of "+regEx);                      
+    else:                                                                                                   
+        printError(fileName, lineNum, True, "Path "+regEx+" is not well formed regular expression");        
+        
+    return ref;
 
 def readIncludeList(fileName, fileList, dict):
     global COMMENT_CHAR;
     # There are two options - substring and regular expression
-    pattern = '^([A-Za-z \\\/]+)$'; # Folder name or file path
-    lineNum = 1;
+    # line can contain additional format flags like cols= and fmt= 
+    patternVariable = '([A-Za-z_][A-Za-z0-9_\.]+)'; # variable or a field
+    patternVariableRe = 're:([A-Za-z_][A-Za-z0-9_\.]+)'; # variable or a field
+    includeFileOptionsParser = createIncludeFileOptionsParser();
+
+    lineNum = 0;
     for line in fileList:
-        line = (line.split(COMMENT_CHAR, 1))[0];
+        lineNum = lineNum + 1;
+        line = (line.split(COMMENT_CHAR, 1))[0];   # drop comment 
         line = line.strip()
         if (line == ""): continue;        
-        match = re.match(pattern, line);
-        if (match):
-            incluePath = match.group(1);
-            if (not incluePath in dict):
-                dict[incluePath] = (lineNum, incluePath, False);
-            else:
-                (lineNumPrev, _, _) = dict[incluePath];
-                printError(fileName, lineNum, True, "Path "+incluePath+" is redefined");
-                printError(fileName, lineNumPrev, True, "Previous definition of "+incluePath);
-        else: # Is it a regex?
-            regEx = line;
-            res = checkRegex(regEx);
-            if (res):
-                 if (not regEx in dict):
-                     dict[regEx] = (lineNum, regEx, True);
-                 else:
-                     (lineNumPrev, _, _) = dict[regEx];
-                     printError(fileName, lineNum, True, "Path "+regEx+" is redefined");
-                     printError(fileName, lineNumPrev, True, "Previous definition of "+regEx);
-            else:
-                printError(fileName, lineNum, True, "Path "+regEx+" is not well formed regular expression");
+        
+        lineWords = line.split();   # split the line by words
+        
+        
+        variableName = lineWords[0]  
+        matchVariable = re.match(patternVariable, variableName);
+        matchVariableRe = re.match(patternVariableRe, variableName);
+        if (matchVariable):
+            inclueVariable = matchVariable.group(1);
+            ref = readIncludeListVariable(fileName, lineNum, fileList, dict, inclueVariable)
+        elif (matchVariableRe): # Is it a regex?
+            inclueVariable = matchVariable.group(1);
+            ref = readIncludeListVariableRe(fileName, lineNum, fileList, dict, inclueVariable)
+        else:
+            printError(fileName, lineNum, True, "Variable name '"+variableName+"' is not well formed");
+            continue;
             
-        lineNum = lineNum + 1;
+        if (ref == None): continue;
+        if (len(lineWords) <= 1): continue;
+            
+        # variable name is alright. Let's take care of optional formats
+        
+        lineWords.pop(0); # remove first entry from the arg list                              
+        try:                                                 
+            (cmdOptions, _) = optionsParser.parse_args(lineWords);
+        except:                                              
+            printWarning(fileName, lineNum, False, "Bad options '"+lineWords+"'");
+            continue;
+        
+        columnsStr = cmdOptions.columns;
+        if (columnsStr != None):
+            (ret, columnsInt) = convertToInt(columnsStr, 10)
+            if (not ret):
+                printWarning(fileName, lineNum, False, "Bad columns argument '"+columnsStr+"'");
+            else:
+                ref.columns = columnsInt
+
+        formatStr = cmdOptions.format;
+        ref.format = formatStr
+            
 
 def printNotUsedSymbols(filename, dict):
     for symbolName in dict:
@@ -201,6 +261,25 @@ def printError(fileName, lineNum, isError, message):
     else:
         print '"{0}", line {1}: warning: {2}'.format(fileName, lineNum, message);
 
+class CommandParser(OptionParser):
+    errorStatus = 0;
+    def exit(self, status=0, msg=None):
+        self.errorStatus = -2;
+        if msg:
+            sys.stderr.write(msg)
+        raise Exception;
+
+# Base call for all nodes - variables, types, base types 
+class IncludeListEntry(object):
+    
+    def __init__(self, lineNum, name, isRegEx):
+        object.__init__(self)
+        
+        self.lineNum = lineNum
+        self.name = name 
+        self.isRegEx = isRegEx;
+        self.format = None;
+        self.columns = None;
 
 # Base call for all nodes - variables, types, base types 
 class Node(object):
@@ -1492,7 +1571,21 @@ def isInDictInclude(dictInclude, s):
 
     return False;
         
-    
+
+def createIncludeFileOptionsParser():                                                                                                                     
+    # create parser for the command line options                                                                                                        
+    parser = CommandParser();
+    parser.description =  "Examples:                                                                           "+\
+        "stat                         # Include global variable 'stat'                                                 "+\
+        "re:stat.+                    # RegEx:include all variables 'stat*'                                       "+\
+        "stat.aggSize.txAggVsRate --cols=4                                                        "+ \
+        "stat.aggSize.txAggVsRate --format=%08X                                                   "; 
+                                                                                                                                                        
+    # command line options                                                                                                                              
+    parser.add_option("--cols", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
+    parser.add_option("--format", dest="formate", metavar="STR", help="Format string", default=None);
+
+    return parser;                                                                                                                                          
        
 def mainLoop():
     global verboseOutput; 
@@ -1511,6 +1604,12 @@ def mainLoop():
     else:
         verboseOutput = False;
 
+
+    if (cmdOptions.printIncludeFileHelp == 'true'):
+        includeFileOptionsParser = createIncludeFileOptionsParser();
+        includeFileOptionsParser.print_help();
+        return;
+
     
     fileDebugInfo = False;
     fileInclude = False;
@@ -1526,7 +1625,6 @@ def mainLoop():
 
         if (verboseOutput):        
             print 'Process file "{0}"'.format(cmdOptions.debugInfoFile);
-            
 
         dictInclude = {};
         if (cmdOptions.includeFile):
