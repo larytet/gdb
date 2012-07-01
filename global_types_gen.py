@@ -1575,6 +1575,23 @@ def isInDictInclude(dictInclude, s):
                 return True;
 
     return False;
+
+def findInDictInclude(dictInclude, s):
+    
+    for (key, includeListEntry) in dictInclude.iteritems():
+        lineNum = includeListEntry.lineNum;
+        pattern = includeListEntry.name
+        isRegEx = includeListEntry.isRegEx
+        
+        if (isRegEx):
+            match = re.match(pattern, s);
+            if (match):
+                return (True, includeListEntry.columns, includeListEntry.format);
+        else:
+            if (s == pattern):
+                return (True, includeListEntry.columns, includeListEntry.format);
+
+    return (False, None, None);
         
 
 def createIncludeFileOptionsParser():                                                                                                                     
