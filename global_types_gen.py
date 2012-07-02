@@ -1684,7 +1684,7 @@ def mainLoop():
             readIncludeList(cmdOptions.includeFile, fileInclude, dictInclude);
         else:                                             
             regEx = ".+";                                     # no include list means include all 
-            dictInclude[regEx] = (0, regEx, True);
+            dictInclude[regEx] = IncludeListEntry(0, regEx, True);
 
         fileName = cmdOptions.debugInfoFile;
         
