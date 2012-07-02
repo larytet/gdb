@@ -1570,6 +1570,9 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
     writeFileShellComment(fileShell, indentation, "Automatically generated shell script");  
     writeFileShellComment(fileShell, indentation, " See http://www.assembla.com/code/OpenTI/git/nodes/master/global_types_gen.py");
     writeFileShell(fileShell, indentation, "set -e")
+    writeFileShellComment(fileShell, indentation, "Use first found phy* folder. See also http://www-rohan.sdsu.edu/doc/sed.html"); 
+    writeFileShellComment(fileShell, indentation, "export DEV_MEM=`find /sys/kernel/debug/ieee80211/phy*/wlcore/mem  -name \"*\" -type f | sed  q -`")
+    writeFileShellComment(fileShell, indentation, "Use last found phy* folder"); 
     writeFileShell(fileShell, indentation, "export DEV_MEM=`find /sys/kernel/debug/ieee80211/phy*/wlcore/mem  -name \"*\" -type f | sed  '$!d' -`")
     writeFileShell(fileShell, indentation, "case $1 in");
     for variable in variables:
