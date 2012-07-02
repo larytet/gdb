@@ -1568,8 +1568,9 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
     indentation = 0;
     
     writeFileShellComment(fileShell, indentation, "Automatically generated shell script");  
-    writeFileShellComment(fileShell, indentation, "See http://www.assembla.com/code/OpenTI/subversion/nodes/scripts/global_types_gen.py ");
-    writeFileShellComment(fileShell, indentation, "export DEV_MEM=/sys/kernel/debug/ieee80211/phy0/wlcore/mem");
+    writeFileShellComment(fileShell, indentation, " See http://www.assembla.com/code/OpenTI/git/nodes/master/global_types_gen.py");
+    writeFileShell(fileShell, indentation, "set -e")
+    writeFileShell(fileShell, indentation, "export DEV_MEM=`find /sys/kernel/debug/ieee80211/phy*/wlcore/mem  -name \"*\" -type f | sed  '$!d' -`")
     writeFileShell(fileShell, indentation, "case $1 in");
     for variable in variables:
         if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)):
