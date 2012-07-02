@@ -1621,7 +1621,7 @@ def findInDictInclude(dictInclude, s):
 def createIncludeFileOptionsParser():                                                                                                                     
     # create parser for the command line options                                                                                                        
     parser = CommandParser(add_help_option=False);
-    parser.usage = "variable_name [options]";
+    parser.usage = "\n[re:]variable1 [options]\n[re:]variable2 [options]\n...";
     parser.description = "Include list file contains list of variables to be included in the output. "+\
         "Every line should contain variable name and optional format flag "+\
         "Examples:                                                                       "+\
