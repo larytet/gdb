@@ -253,8 +253,8 @@ def readIncludeList(fileName, fileList, dict):
         ref.format = formatStr
         ref.lineIndex = cmdOptions.lineIndex;
         if verboseOutput: print "lineindex: "+str(ref.lineIndex)+", "+inclueVariable;  
-        ref.zerofill = cmdOptions.zerofill;
-        if verboseOutput: print "zerofill: "+str(ref.zerofill)+", "+inclueVariable;  
+        ref.useblank = cmdOptions.useblank;
+        if verboseOutput: print "useblank: "+str(ref.useblank)+", "+inclueVariable;  
 
 def printNotUsedSymbols(filename, dict):
     for symbolName in dict:
@@ -293,7 +293,7 @@ class IncludeListEntry(object):
         self.isRegEx = isRegEx;
         self.format = None;
         self.columns = None;
-        self.zerofill = False;
+        self.useblank = False;
         self.lineIndex = False;
 
 # Base call for all nodes - variables, types, base types 
@@ -1478,6 +1478,7 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
     elif (type.type.isBaseType()):
         elemSize = type.type.size;
         lineIndex = False;
+        useblank = False;
         if (elemSize == 1):
             format = "%02X"
             columns = 16;
@@ -1494,8 +1495,11 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
             if (ref.columns != None): columns = ref.columns;
             if (ref.format != None): format = ref.format;
             lineIndex = ref.lineIndex;
+            useblank = ref.useblank;
             if (verboseOutput): print name, "lineIndex=", lineIndex 
         
+        if (useblank):
+            format = format.replace("0", " ");
         if (not lineIndex):
             writeFileShell(fileShell, indentation+1, 
                 "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '{4}/{5} \"{3} \" \"\\n\"' ".format(
@@ -1679,13 +1683,13 @@ def createIncludeFileOptionsParser():
         "Examples:                                                                       "+\
         "stat                         # Include global variable 'stat'                                     "+\
         "re:stat.+                    # RegEx:include all variables 'stat*'                                "+\
-        "txAggVsRate --collumns=4 --format=%08X                                                                ";
+        "txAggVsRate --collumns=4 --format='%08X'                                                                ";
                                                                                                                                                         
     # command line options                                                                                                                              
     parser.add_option("--columns", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
     parser.add_option("--format", dest="format", metavar="STR", help="Format string", default=None);
-    parser.add_option("--lineindex", dest="lineIndex", action="store_true", help="Print leading index for the lines in an array", default=False);
-    parser.add_option("--zerofill", dest="zerofill", action="store_true", help="Use zeros when numeric string is justified", default=False);
+    parser.add_option("--lineindex", dest="lineIndex", action="store_true", help="Arrays: Print leading index for the lines in an array", default=False);
+    parser.add_option("--useblank", dest="useblank", action="store_true", help="Arrays: Use space to pad the values", default=False);
 
     return parser;                                                                                                                                          
        
