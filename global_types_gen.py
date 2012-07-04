@@ -249,6 +249,8 @@ def readIncludeList(fileName, fileList, dict):
         ref.format = formatStr
         ref.lineIndex = cmdOptions.lineIndex;
         if verboseOutput: print "lineindex: "+str(ref.lineIndex)+", "+inclueVariable;  
+        ref.columnIndex = cmdOptions.columnIndex;
+        if verboseOutput: print "columnIndex: "+str(ref.columnIndex)+", "+inclueVariable;  
         ref.useblank = cmdOptions.useblank;
         if verboseOutput: print "useblank: "+str(ref.useblank)+", "+inclueVariable;
         if (cmdOptions.decimal != None):
@@ -295,6 +297,7 @@ class IncludeListEntry(object):
         self.columns = None;
         self.useblank = False;
         self.lineIndex = False;
+        self.columnIndex = None;
 
 # Base call for all nodes - variables, types, base types 
 class Node(object):
@@ -1477,6 +1480,7 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
     elif (type.type.isBaseType()):
         elemSize = type.type.size;
         lineIndex = False;
+        columnIndex = None;
         useblank = False;
         if (elemSize == 1):
             format = "%02X"
@@ -1495,10 +1499,16 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
             if (ref.format != None): format = ref.format;
             lineIndex = ref.lineIndex;
             useblank = ref.useblank;
-            if (verboseOutput): print name, "lineIndex=", lineIndex 
+            columnIndex = ref.columnIndex;
+            if (verboseOutput): print name, "lineIndex=", lineIndex, "columnIndex=", columnIndex 
         
         if (useblank):
             format = format.replace("0", " ");
+        if (columnIndex != None):
+            header = ""
+            for col in range(columns):
+                header = header + str(col).rjust(columnIndex)
+            writeFileShell(fileShell, indentation+1, "echo '{0}'".format(header));
         if (not lineIndex):
             writeFileShell(fileShell, indentation+1, 
                 "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '{4}/{5} \"{3} \" \"\\n\"' ".format(
@@ -1695,6 +1705,7 @@ def createIncludeFileOptionsParser():
     parser.add_option("--columns", dest="columns", metavar="INT", type="int", help="Number of columns when printing an array", default=None);
     parser.add_option("--format", dest="format", metavar="STR", type="string", help="Format string", default=None);
     parser.add_option("--lineindex", dest="lineIndex", action="store_true", help="Arrays: Print leading index for the lines in an array", default=False);
+    parser.add_option("--columnindex", dest="columnIndex", metavar="INT", type="int", help="Arrays: Print column index every X positions", default=None);
     parser.add_option("--useblank", dest="useblank", action="store_true", help="Arrays: Use space to pad the values", default=False);
     parser.add_option("--decimal", dest="decimal", metavar="INT", type="int", help="Print decimal value, pad with blanks", default=None);
 
