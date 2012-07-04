@@ -51,6 +51,7 @@
  
  
 import sys, re, fileinput, os, tempfile;
+import math;
 from optparse import OptionParser;
 from array import *
 
@@ -1455,12 +1456,11 @@ def generateRaw(fileName, dictInclude, fileRaw, typeRefs, types, variables):
     
 
 def getLinesWidth(lines):
-    linesWidth = 3;
-
-    if (lines < 10): linesWidth = 1;
-    elif (lines <  100): linesWidth = 2;
     
-    return linesWidth;
+    digits = int(math.log10(lines))+1
+    # digits = len(str(123)) # slower implementation
+    
+    return digits;
     
 
 def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, type, location, name):
@@ -1508,6 +1508,8 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
             bytesInLine = columns * elemSize;
             lines = (type.size/bytesInLine);
             linesWidth = getLinesWidth(lines)
+            if (verboseOutput): print "generateArray", name,linesWidth,lines,type.size 
+            if (verboseOutput): print "generateArray", name,bytesInLine,elemSize,columns 
             for line in range(lines):
                 lineStr=strInt(line, linesWidth)
                 writeFileShell(fileShell, indentation+1, 
