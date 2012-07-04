@@ -70,7 +70,7 @@ def convertToInt(s, base):
         result = False;
     return (result, value);
 
-def strHex(value, width=8, prefix=''):
+def strHex(value, width=8, fillchar='0'):
     if (value == None):
         value = 0xFFFFFFFF;
     valueStr = hex(value)
@@ -78,12 +78,19 @@ def strHex(value, width=8, prefix=''):
     valueStr = valueStr.rstrip("L")
     valueStr = valueStr.lower();
     if (width > 0):
-        valueStr = valueStr.zfill(width)   # add zeros the left
-
-    valueStr = prefix + valueStr
+        valueStr = valueStr.ljust(width, fillchar);
 
     return valueStr
 
+def strInt(value, width=9, fillchar='0'):
+    if (value == None):
+        value = -1;
+    valueStr = str(value)
+    valueStr = valueStr.rstrip("L")
+    if (width > 0):
+        valueStr = valueStr.rjust(width, fillchar);
+
+    return valueStr
     
 # returns false if mandatory args are not there 
 def checkArgs(args):
@@ -127,10 +134,10 @@ def createOptionsParser():
                       "If list is empty or no list is specified all symbols will be processed\n" 
                       "Use --ihelp to see include file help                                     ",
                       default=False);
-    parser.add_option("--ihelp", dest="printIncludeFileHelp", metavar="true/false", help="Show include file help", default=False);
+    parser.add_option("--ihelp", dest="printIncludeFileHelp", action="store_true", help="Show include file help", default=False);
     parser.add_option("--osh", dest="generateShell", metavar="FILE", help="Generate shell script", default=None);
     parser.add_option("--oraw", dest="generateRaw", metavar="FILE", help="Generate indented ASCII output", default=None);
-    parser.add_option("-v", "--verbose", dest="verboseOutput", metavar="true/false", help="Print full debug info", default=False);
+    parser.add_option("-v", "--verbose", dest="verboseOutput", action="store_true", help="Print full debug info", default=False);
     return parser;
 
 
@@ -163,6 +170,7 @@ def readIncludeListVariable(fileName, lineNum, fileList, dict, inclueVariable):
     incluePath = inclueVariable
     if (not incluePath in dict):
         ref = IncludeListEntry(lineNum, incluePath, False)
+        if (verboseOutput): print "Add to dictionary", inclueVariable                                                           
         dict[incluePath] = ref;
     else:
         (lineNumPrev, _, _) = dict[incluePath];
@@ -178,7 +186,8 @@ def readIncludeListVariableRe(fileName, lineNum, fileList, dict, inclueVariableR
     res = checkRegex(regEx);                                                                                
     if (res):                                                                                               
          if (not regEx in dict):
-             ref = IncludeListEntry(lineNum, regEx, True);                                                                       
+             ref = IncludeListEntry(lineNum, regEx, True);          
+             if (verboseOutput): print "Add to dictionary re", inclueVariableRe                                                           
              dict[regEx] = ref                                                          
          else:                                                                                              
              (lineNumPrev, _, _) = dict[regEx];                                                             
@@ -242,7 +251,10 @@ def readIncludeList(fileName, fileList, dict):
 
         formatStr = cmdOptions.format;
         ref.format = formatStr
-            
+        ref.lineIndex = cmdOptions.lineIndex;
+        if verboseOutput: print "lineindex: "+str(ref.lineIndex)+", "+inclueVariable;  
+        ref.zerofill = cmdOptions.zerofill;
+        if verboseOutput: print "zerofill: "+str(ref.zerofill)+", "+inclueVariable;  
 
 def printNotUsedSymbols(filename, dict):
     for symbolName in dict:
@@ -281,6 +293,8 @@ class IncludeListEntry(object):
         self.isRegEx = isRegEx;
         self.format = None;
         self.columns = None;
+        self.zerofill = False;
+        self.lineIndex = False;
 
 # Base call for all nodes - variables, types, base types 
 class Node(object):
@@ -1440,7 +1454,14 @@ def generateRaw(fileName, dictInclude, fileRaw, typeRefs, types, variables):
             generateRawVariable(fileName, fileRaw, indentation, typeRefs, types, variable, variable.type)
     
 
+def getLinesWidth(lines):
+    linesWidth = 3;
 
+    if (lines < 10): linesWidth = 1;
+    elif (lines <  100): linesWidth = 2;
+    
+    return linesWidth;
+    
 
 def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, type, location, name):
     indentationStr = getIndentation(indentation);
@@ -1456,6 +1477,7 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
             generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type.type, location+elemSize*i);
     elif (type.type.isBaseType()):
         elemSize = type.type.size;
+        lineIndex = False;
         if (elemSize == 1):
             format = "%02X"
             columns = 16;
@@ -1465,13 +1487,29 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
         elif (elemSize == 4):
             format = "%08X"
             columns = 8;
-        (_, columns1, format1) = findInDictInclude(dictInclude, name);
-        if (columns1 != None): columns = columns1;
-        if (format1 != None): format = format1;
+        if (verboseOutput): print "generateArray", name 
+        (res, ref) = findInDictInclude(dictInclude, name);
+        if (verboseOutput): print name, "res=", res,name 
+        if (res):
+            if (ref.columns != None): columns = ref.columns;
+            if (ref.format != None): format = ref.format;
+            lineIndex = ref.lineIndex;
+            if (verboseOutput): print name, "lineIndex=", lineIndex 
         
-        writeFileShell(fileShell, indentation+1, 
-            "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '{4}/{5} \"{3} \" \"\\n\"' ".format(
+        if (not lineIndex):
+            writeFileShell(fileShell, indentation+1, 
+                "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '{4}/{5} \"{3} \" \"\\n\"' ".format(
                 type.size/4, locationStr, type.size, format, columns, elemSize));
+        else:
+            bytesInLine = columns * elemSize;
+            lines = (type.size/bytesInLine);
+            linesWidth = getLinesWidth(lines)
+            for line in range(lines):
+                lineStr=strInt(line, linesWidth)
+                writeFileShell(fileShell, indentation+1, 
+                "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -e '\"{6}: \" {4}/{5} \"{3} \" \"\\n\"' ".format(
+                bytesInLine/4, strHex(location+bytesInLine*line), bytesInLine, format, columns, elemSize, lineStr));
+            
     else:  
         writeFileShell(fileShell, indentation+1, 
             "dd bs=4 count={0} skip=$((0x{1}/4)) if=$DEV_MEM 2> /dev/null | hexdump -v -n {2} -C".format(
@@ -1585,6 +1623,9 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
 
 def isInDictInclude(dictInclude, s):
     
+    if (s in dictInclude):
+        return True;
+    
     for (key, includeListEntry) in dictInclude.iteritems():
         lineNum = includeListEntry.lineNum;
         pattern = includeListEntry.name
@@ -1602,20 +1643,31 @@ def isInDictInclude(dictInclude, s):
 
 def findInDictInclude(dictInclude, s):
     
+    if (verboseOutput): print "Look for", s;
+    if (s in dictInclude):
+        if (verboseOutput): print "Look for", s, "found0";
+        return (True, dictInclude[s]);
+    
+    if (verboseOutput): print "Look for", s, "in loop";
+    
     for (key, includeListEntry) in dictInclude.iteritems():
         lineNum = includeListEntry.lineNum;
         pattern = includeListEntry.name
         isRegEx = includeListEntry.isRegEx
         
         if (isRegEx):
+            if (verboseOutput): print "Look for", s, "in loop regex";
             match = re.match(pattern, s);
             if (match):
-                return (True, includeListEntry.columns, includeListEntry.format);
+                if (verboseOutput): print "Look for", s, "found1";
+                return (True, includeListEntry);
         else:
             if (s == pattern):
-                return (True, includeListEntry.columns, includeListEntry.format);
+                if (verboseOutput): print "Look for", s, "found2";
+                return (True, includeListEntry);
 
-    return (False, None, None);
+    if (verboseOutput): print "Look for", s, "not found";
+    return (False, None);
         
 
 def createIncludeFileOptionsParser():                                                                                                                     
@@ -1627,11 +1679,13 @@ def createIncludeFileOptionsParser():
         "Examples:                                                                       "+\
         "stat                         # Include global variable 'stat'                                     "+\
         "re:stat.+                    # RegEx:include all variables 'stat*'                                "+\
-        "txAggVsRate --cols=4 --format=%08X                                                                ";
+        "txAggVsRate --collumns=4 --format=%08X                                                                ";
                                                                                                                                                         
     # command line options                                                                                                                              
     parser.add_option("--columns", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
     parser.add_option("--format", dest="format", metavar="STR", help="Format string", default=None);
+    parser.add_option("--lineindex", dest="lineIndex", action="store_true", help="Print leading index for the lines in an array", default=False);
+    parser.add_option("--zerofill", dest="zerofill", action="store_true", help="Use zeros when numeric string is justified", default=False);
 
     return parser;                                                                                                                                          
        
@@ -1646,14 +1700,14 @@ def mainLoop():
     # parse command line arguments
     (cmdOptions, args) = parser.parse_args();
     
-    if (cmdOptions.verboseOutput == 'true'):
+    if (cmdOptions.verboseOutput):
         print 'Verbose output is on';
         verboseOutput = True;
     else:
         verboseOutput = False;
 
 
-    if (cmdOptions.printIncludeFileHelp == 'true'):
+    if (cmdOptions.printIncludeFileHelp):
         includeFileOptionsParser = createIncludeFileOptionsParser();
         includeFileOptionsParser.print_help();
         return;
