@@ -242,20 +242,19 @@ def readIncludeList(fileName, fileList, dict):
             printError(fileName, lineNum, False, "Bad options '"+" ".join(lineWords)+"'");
             continue;
         
-        columnsStr = cmdOptions.columns;
-        if (columnsStr != None):
-            (ret, columnsInt) = convertToInt(columnsStr, 10)
-            if (not ret):
-                printWarning(fileName, lineNum, False, "Bad columns argument '"+columnsStr+"'");
-            else:
-                ref.columns = columnsInt
+        if (cmdOptions.columns != None):
+            ref.columns = cmdOptions.columns
 
         formatStr = cmdOptions.format;
         ref.format = formatStr
         ref.lineIndex = cmdOptions.lineIndex;
         if verboseOutput: print "lineindex: "+str(ref.lineIndex)+", "+inclueVariable;  
         ref.useblank = cmdOptions.useblank;
-        if verboseOutput: print "useblank: "+str(ref.useblank)+", "+inclueVariable;  
+        if verboseOutput: print "useblank: "+str(ref.useblank)+", "+inclueVariable;
+        if (cmdOptions.decimal != None):
+            ref.useblank = True;
+            ref.format = "% {0}d".format(cmdOptions.decimal);
+
 
 def printNotUsedSymbols(filename, dict):
     for symbolName in dict:
@@ -1693,10 +1692,11 @@ def createIncludeFileOptionsParser():
         "txAggVsRate --collumns=4 --format='%08X'                                                                ";
                                                                                                                                                         
     # command line options                                                                                                                              
-    parser.add_option("--columns", dest="columns", metavar="INT", help="Number of columns when printing an array", default=None);
-    parser.add_option("--format", dest="format", metavar="STR", help="Format string", default=None);
+    parser.add_option("--columns", dest="columns", metavar="INT", type="int", help="Number of columns when printing an array", default=None);
+    parser.add_option("--format", dest="format", metavar="STR", type="string", help="Format string", default=None);
     parser.add_option("--lineindex", dest="lineIndex", action="store_true", help="Arrays: Print leading index for the lines in an array", default=False);
     parser.add_option("--useblank", dest="useblank", action="store_true", help="Arrays: Use space to pad the values", default=False);
+    parser.add_option("--decimal", dest="decimal", metavar="INT", type="int", help="Print decimal value, pad with blanks", default=None);
 
     return parser;                                                                                                                                          
        
