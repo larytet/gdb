@@ -1570,35 +1570,39 @@ def generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRef
 
         variableLocation = variable.location;                                                 
                                                                                                                          
-        if verboseOutput: print "Handle variable", strHex(variable.address), strHex(variable.typeAddress), variableType; 
+        if verboseOutput: print "Handle variable", strHex(variable.address), strHex(variable.typeAddress), variableType;
+        variableName = variable.name;
+        
+        if (variableName.startswith("$")):
+            variableName = variableName.replace("$", "ds")
                                                                                                                          
         if (variableType.isArray()):                                                  
-            writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
-            generateShellArray(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation, variable.name);                                   
+            writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
+            generateShellArray(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation, variableName);                                   
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isPointer()):                                                                                   
-            writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
+            writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
             generateShellPointer(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                 
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isStructure()):                                                                                 
-            writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
+            writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
             writeFileShellComment(fileShell, indentation, "{0} type={1}, bytes={2}".format(variable.name, variableType.name, variableType.size))                                   
             generateShellStructure(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                               
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isBaseType()):                                                                                  
-            writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
+            writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
             generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
                                                                                                                          
         if (variableType.isUnion()):                                                                                     
-            writeFileShell(fileShell, indentation, "{0})".format(variable.name))                                   
+            writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
             generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                                
             writeFileShell(fileShell, indentation, ";;")                                   
             break;                                                                                                       
@@ -1619,7 +1623,8 @@ def generateShell(fileName, dictInclude, fileShell, typeRefs, types, variables):
     writeFileShell(fileShell, indentation, "export DEV_MEM=`find /sys/kernel/debug/ieee80211/phy*/wlcore/mem  -name \"*\" -type f | sed  '$!d' -`")
     writeFileShell(fileShell, indentation, "case $1 in");
     for variable in variables:
-        if ((variable.name != None) and isInDictInclude(dictInclude, variable.name)):
+        variableName = variable.name;
+        if ((variableName != None) and isInDictInclude(dictInclude, variableName)):
             generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRefs, types, variable, variable.type)
     writeFileShell(fileShell, indentation, "*)".format(variable.name))                                   
     writeFileShell(fileShell, indentation+1, "echo Unknown variable $1")                                   
