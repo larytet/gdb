@@ -690,14 +690,14 @@ def createLinePatterns():
     patterns.append((LINE_ENUMERATOR ,       "    ([0-9a-f]{8})(.+)DW_TAG_enumerator"                                    , parseDebugInfoEnumerator))
     patterns.append((LINE_NAME ,             "    ([0-9a-f]{8})( +)DW_AT_name +(.+)"                                     , parseDebugInfoName))            
     patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_variable"                                      , parseDebugInfoVariable))       
-    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location       DW_OP_\S+ 0x([0-9a-f]+)"         , parseDebugInfoLocation))       
+    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location +DW_OP_addr +0x([0-9a-f]+)"            , parseDebugInfoLocation))       
     patterns.append((LINE_TYPE ,             "    ([0-9a-f]{8})( +)DW_AT_type +.*debug_info.* +0x([0-9a-f]+)"            , parseDebugInfoType))             
     patterns.append((LINE_TYPEDEF ,          "    ([0-9a-f]{8})(.+)DW_TAG_typedef"                                       , parseDebugInfoTypedef))        
     patterns.append((LINE_POINTERTYPE ,      "    ([0-9a-f]{8})(.+)DW_TAG_pointer_type"                                  , parseDebugInfoPointerType))     
     patterns.append((LINE_STRUCTURE ,        "    ([0-9a-f]{8})(.+)DW_TAG_structure_type"                                , parseDebugInfoStructure))       
     patterns.append((LINE_BYTESIZE ,         "    ([0-9a-f]{8})( +)DW_AT_byte_size ([0-9]+)"                             , parseDebugInfoBytesize))        
     patterns.append((LINE_MEMBER ,           "    ([0-9a-f]{8})(.+)DW_TAG_member"                                        , parseDebugInfoMember))          
-    patterns.append((LINE_MEMBERLOCATION ,   "    ([0-9a-f]{8})( +)DW_AT_data_member_location DW_OP_plus_uconst ([0-9]+)", parseDebugInfoMemberlocation)) 
+    patterns.append((LINE_MEMBERLOCATION ,   "    ([0-9a-f]{8})( +)DW_AT_data_member_location DW_OP_plus_uconst ([0-9]+)", parseDebugInfoMemberlocation))
     patterns.append((LINE_UNION ,            "    ([0-9a-f]{8})(.+)DW_TAG_union_type"                                    , parseDebugInfoUnion))            
     patterns.append((LINE_SUBPROGRAM ,       "    ([0-9a-f]{8})(.+)DW_TAG_subprogram(.+)"                                , parseDebugInfoSubprogram))          
     patterns.append((LINE_ARRAYTYPE ,        "    ([0-9a-f]{8})(.+)DW_TAG_array_type"                                    , parseDebugInfoArrayType))          
@@ -1566,7 +1566,7 @@ def generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types,
             
             fieldType = field.type;
             fieldName = field.name;
-            if (field.location != None):
+            if (field.location == None):
                 printError("", 1, False, "Skip field: name={0}".format(fieldName));
                 continue;
                 
@@ -1606,7 +1606,11 @@ def generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRef
         if (variableType == None):                                                                                       
             break;
 
-        variableLocation = variable.location;                                                 
+        variableLocation = variable.location;
+        
+        if (variableLocation == None):                                                 
+            printError("", 1, False, "Skip variable: name={0}".format(variable.name));
+            break;
                                                                                                                          
         if verboseOutput: print "Handle variable", strHex(variable.address), strHex(variable.typeAddress), variableType;
         variableName = variable.name;
