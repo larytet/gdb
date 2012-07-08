@@ -21,10 +21,6 @@
 #
 # PR c++/9489.
 
-if $tracelevel then {
-    strace $tracelevel
-}
-
 if { [skip_cplus_tests] } { continue }
 if { [skip_shlib_tests] } { continue }
 
@@ -38,7 +34,7 @@ set sofile $objdir/$subdir/${libfile}.so
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-if [get_compiler_info ${binfile} "c++"] {
+if [get_compiler_info "c++"] {
     return -1
 }
 

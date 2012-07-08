@@ -17,10 +17,6 @@
 # This file was written by Sue Kimura (sue_kimura@hp.com)
 # Rewritten by Michael Chastain (mec.gnu@mindspring.com)
 
-if $tracelevel {
-    strace $tracelevel
-}
-
 if { [skip_stl_tests] } { continue }
 
 # On SPU this test fails because the executable exceeds local storage size.
@@ -32,7 +28,7 @@ set testfile "bs15503"
 set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
 
-if [get_compiler_info ${binfile}] {
+if [get_compiler_info] {
     return -1
 }
 

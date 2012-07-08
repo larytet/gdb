@@ -16,15 +16,9 @@
 # This file is part of the GDB testsuite.  It tests Python-based
 # pretty-printing for the CLI.
 
-if $tracelevel then {
-    strace $tracelevel
-}
-
 load_lib gdb-python.exp
 
-set testfile "py-prettyprint"
-set srcfile ${testfile}.c
-set binfile ${objdir}/${subdir}/${testfile}
+standard_testfile
 
 # Start with a fresh gdb.
 gdb_exit

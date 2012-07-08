@@ -18,10 +18,6 @@
 # This test verifies that setting breakpoint on line in inline
 # function will fire in all instantiations of that function.
 
-if $tracelevel then {
-    strace $tracelevel
-}
-
 if { [skip_cplus_tests] } { continue }
 
 
@@ -48,7 +44,7 @@ if  { [gdb_compile "$objdir/$subdir/$objfile1 $objdir/$subdir/$objfile2" "${binf
      return -1
 }
 
-if [get_compiler_info ${binfile} "c++"] {
+if [get_compiler_info "c++"] {
     return -1
 }
 

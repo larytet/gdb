@@ -17,10 +17,6 @@
 
 # This contains tests for breakpoints in C++.
 
-if $tracelevel then {
-        strace $tracelevel
-        }
-
 if { [skip_cplus_tests] } { continue }
 
 #
@@ -36,7 +32,7 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
      return -1
 }
 
-if [get_compiler_info ${binfile} "c++"] {
+if [get_compiler_info "c++"] {
     return -1
 }
 
@@ -50,7 +46,7 @@ proc test_breakpoint {name} {
     # lead to a cascade.
     if ![runto_main] then {
 	perror "couldn't run to main when testing ${name}"
-	continue
+	return -code continue
     } else {
 	gdb_breakpoint "${name}"
 	gdb_test "continue" "Continuing.\r\n\r\nBreakpoint \[0-9\]*, ${name}.*" "continue to ${name}"

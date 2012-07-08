@@ -171,10 +171,6 @@
 # other ways this test could fail to do its job.  If you need to make
 # revisions, please be very careful.
 
-if $tracelevel then {
-    strace $tracelevel
-}
-
 #
 # test running programs
 #
@@ -185,7 +181,7 @@ if { [skip_cplus_tests] } { continue }
 set testfile "psmang"
 set binfile ${objdir}/${subdir}/${testfile}
 
-if [get_compiler_info ${binfile} "c++"] {
+if [get_compiler_info "c++"] {
     return -1;
 }
 

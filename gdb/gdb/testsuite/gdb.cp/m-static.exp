@@ -19,10 +19,6 @@
 
 # This file is part of the gdb testsuite
 
-if $tracelevel then {
-        strace $tracelevel
-        }
-
 if { [skip_cplus_tests] } { continue }
 
 #
@@ -51,7 +47,7 @@ if { [gdb_compile "$objdir/$subdir/$objfile $objdir/$subdir/$objfile1" "${binfil
      return -1
 }
 
-if [get_compiler_info $binfile] {
+if [get_compiler_info] {
     return -1
 }
 

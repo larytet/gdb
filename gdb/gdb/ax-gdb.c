@@ -41,9 +41,12 @@
 #include "tracepoint.h"
 #include "cp-support.h"
 #include "arch-utils.h"
+#include "cli/cli-utils.h"
 
 #include "valprint.h"
 #include "c-lang.h"
+
+#include "format.h"
 
 /* To make sense of this file, you should read doc/agentexpr.texi.
    Then look at the types and enums in ax-gdb.h.  For the code itself,
@@ -95,8 +98,6 @@ static void gen_int_literal (struct agent_expr *ax,
 			     struct axs_value *value,
 			     LONGEST k, struct type *type);
 
-
-static void require_rvalue (struct agent_expr *ax, struct axs_value *value);
 static void gen_usual_unary (struct expression *exp, struct agent_expr *ax,
 			     struct axs_value *value);
 static int type_wider_than (struct type *type1, struct type *type2);
@@ -157,8 +158,6 @@ static void gen_repeat (struct expression *exp, union exp_element **pc,
 static void gen_sizeof (struct expression *exp, union exp_element **pc,
 			struct agent_expr *ax, struct axs_value *value,
 			struct type *size_type);
-static void gen_expr (struct expression *exp, union exp_element **pc,
-		      struct agent_expr *ax, struct axs_value *value);
 static void gen_expr_binop_rest (struct expression *exp,
 				 enum exp_opcode op, union exp_element **pc,
 				 struct agent_expr *ax,
@@ -515,6 +514,9 @@ gen_fetch (struct agent_expr *ax, struct type *type)
       ax_trace_quick (ax, TYPE_LENGTH (type));
     }
 
+  if (TYPE_CODE (type) == TYPE_CODE_RANGE)
+    type = TYPE_TARGET_TYPE (type);
+
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_PTR:
@@ -553,12 +555,11 @@ gen_fetch (struct agent_expr *ax, struct type *type)
       break;
 
     default:
-      /* Either our caller shouldn't have asked us to dereference that
-         pointer (other code's fault), or we're not implementing
-         something we should be (this code's fault).  In any case,
-         it's a bug the user shouldn't see.  */
-      internal_error (__FILE__, __LINE__,
-		      _("gen_fetch: bad type code"));
+      /* Our caller requested us to dereference a pointer from an unsupported
+	 type.  Error out and give callers a chance to handle the failure
+	 gracefully.  */
+      error (_("gen_fetch: Unsupported type code `%s'."),
+	     TYPE_NAME (type));
     }
 }
 
@@ -789,7 +790,7 @@ gen_int_literal (struct agent_expr *ax, struct axs_value *value, LONGEST k,
 /* Take what's on the top of the stack (as described by VALUE), and
    try to make an rvalue out of it.  Signal an error if we can't do
    that.  */
-static void
+void
 require_rvalue (struct agent_expr *ax, struct axs_value *value)
 {
   /* Only deal with scalars, structs and such may be too large
@@ -878,12 +879,6 @@ gen_usual_unary (struct expression *exp, struct agent_expr *ax,
     case TYPE_CODE_STRUCT:
     case TYPE_CODE_UNION:
       return;
-
-      /* If the value is an enum or a bool, call it an integer.  */
-    case TYPE_CODE_ENUM:
-    case TYPE_CODE_BOOL:
-      value->type = builtin_type (exp->gdbarch)->builtin_int;
-      break;
     }
 
   /* If the value is an lvalue, dereference it.  */
@@ -1477,7 +1472,7 @@ gen_struct_ref_recursive (struct expression *exp, struct agent_expr *ax,
 
   for (i = TYPE_NFIELDS (type) - 1; i >= nbases; i--)
     {
-      char *this_name = TYPE_FIELD_NAME (type, i);
+      const char *this_name = TYPE_FIELD_NAME (type, i);
 
       if (this_name)
 	{
@@ -1625,7 +1620,7 @@ gen_struct_elt_for_reference (struct expression *exp,
 
   for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); i--)
     {
-      char *t_field_name = TYPE_FIELD_NAME (t, i);
+      const char *t_field_name = TYPE_FIELD_NAME (t, i);
 
       if (t_field_name && strcmp (t_field_name, fieldname) == 0)
 	{
@@ -1807,7 +1802,7 @@ gen_sizeof (struct expression *exp, union exp_element **pc,
 /* XXX: i18n */
 /* A gen_expr function written by a Gen-X'er guy.
    Append code for the subexpression of EXPR starting at *POS_P to AX.  */
-static void
+void
 gen_expr (struct expression *exp, union exp_element **pc,
 	  struct agent_expr *ax, struct axs_value *value)
 {
@@ -2042,7 +2037,8 @@ gen_expr (struct expression *exp, union exp_element **pc,
 
     case OP_INTERNALVAR:
       {
-	const char *name = internalvar_name ((*pc)[1].internalvar);
+	struct internalvar *var = (*pc)[1].internalvar;
+	const char *name = internalvar_name (var);
 	struct trace_state_variable *tsv;
 
 	(*pc) += 3;
@@ -2056,7 +2052,7 @@ gen_expr (struct expression *exp, union exp_element **pc,
 	    value->kind = axs_rvalue;
 	    value->type = builtin_type (exp->gdbarch)->builtin_long_long;
 	  }
-	else
+	else if (! compile_internalvar_to_ax (var, ax, value))
 	  error (_("$%s is not a trace state variable; GDB agent "
 		   "expressions cannot use convenience variables."), name);
       }
@@ -2178,7 +2174,6 @@ gen_expr (struct expression *exp, union exp_element **pc,
 
     case OP_THIS:
       {
-	char *this_name;
 	struct symbol *sym, *func;
 	struct block *b;
 	const struct language_defn *lang;
@@ -2221,7 +2216,7 @@ gen_expr (struct expression *exp, union exp_element **pc,
 
     default:
       error (_("Unsupported operator %s (%d) in expression."),
-	     op_string (op), op);
+	     op_name (exp, op), op);
     }
 }
 
@@ -2511,6 +2506,59 @@ gen_trace_for_return_address (CORE_ADDR scope, struct gdbarch *gdbarch)
   return ax;
 }
 
+/* Given a collection of printf-style arguments, generate code to
+   evaluate the arguments and pass everything to a special
+   bytecode.  */
+
+struct agent_expr *
+gen_printf (CORE_ADDR scope, struct gdbarch *gdbarch,
+	    CORE_ADDR function, LONGEST channel,
+	    char *format, int fmtlen,
+	    struct format_piece *frags,
+	    int nargs, struct expression **exprs)
+{
+  struct expression *expr;
+  struct cleanup *old_chain = 0;
+  struct agent_expr *ax = new_agent_expr (gdbarch, scope);
+  union exp_element *pc;
+  struct axs_value value;
+  int i, tem, bot, fr, flen;
+  char *fmt;
+
+  old_chain = make_cleanup_free_agent_expr (ax);
+
+  /* Evaluate and push the args on the stack in reverse order,
+     for simplicity of collecting them on the target side.  */
+  for (tem = nargs - 1; tem >= 0; --tem)
+    {
+      pc = exprs[tem]->elts;
+      /* We're computing values, not doing side effects.  */
+      trace_kludge = 0;
+      value.optimized_out = 0;
+      gen_expr (exprs[tem], &pc, ax, &value);
+      require_rvalue (ax, &value);
+    }
+
+  /* Push function and channel.  */
+  ax_const_l (ax, channel);
+  ax_const_l (ax, function);
+
+  /* Issue the printf bytecode proper.  */
+  ax_simple (ax, aop_printf);
+  ax_simple (ax, nargs);
+  ax_string (ax, format, fmtlen);
+
+  /* And terminate.  */
+  ax_simple (ax, aop_end);
+
+  /* We have successfully built the agent expr, so cancel the cleanup
+     request.  If we add more cleanups that we always want done, this
+     will have to get more complicated.  */
+  discard_cleanups (old_chain);
+
+  return ax;
+}
+
 static void
 agent_command (char *exp, int from_tty)
 {
@@ -2594,6 +2642,88 @@ agent_eval_command (char *exp, int from_tty)
   do_cleanups (old_chain);
   dont_repeat ();
 }
+/* Parse the given expression, compile it into an agent expression
+   that does a printf, and display the resulting expression.  */
+
+static void
+maint_agent_printf_command (char *exp, int from_tty)
+{
+  struct cleanup *old_chain = 0;
+  struct expression *expr;
+  struct expression *argvec[100];
+  struct agent_expr *agent;
+  struct frame_info *fi = get_current_frame ();	/* need current scope */
+  char *cmdrest;
+  char *format_start, *format_end;
+  struct format_piece *fpieces;
+  int nargs;
+
+  /* We don't deal with overlay debugging at the moment.  We need to
+     think more carefully about this.  If you copy this code into
+     another command, change the error message; the user shouldn't
+     have to know anything about agent expressions.  */
+  if (overlay_debugging)
+    error (_("GDB can't do agent expression translation with overlays."));
+
+  if (exp == 0)
+    error_no_arg (_("expression to translate"));
+
+  cmdrest = exp;
+
+  cmdrest = skip_spaces (cmdrest);
+
+  if (*cmdrest++ != '"')
+    error (_("Must start with a format string."));
+
+  format_start = cmdrest;
+
+  fpieces = parse_format_string (&cmdrest);
+
+  old_chain = make_cleanup (free_format_pieces_cleanup, &fpieces);
+
+  format_end = cmdrest;
+
+  if (*cmdrest++ != '"')
+    error (_("Bad format string, non-terminated '\"'."));
+  
+  cmdrest = skip_spaces (cmdrest);
+
+  if (*cmdrest != ',' && *cmdrest != 0)
+    error (_("Invalid argument syntax"));
+
+  if (*cmdrest == ',')
+    cmdrest++;
+  cmdrest = skip_spaces (cmdrest);
+
+  nargs = 0;
+  while (*cmdrest != '\0')
+    {
+      char *cmd1;
+
+      cmd1 = cmdrest;
+      expr = parse_exp_1 (&cmd1, 0, (struct block *) 0, 1);
+      argvec[nargs] = expr;
+      ++nargs;
+      cmdrest = cmd1;
+      if (*cmdrest == ',')
+	++cmdrest;
+      /* else complain? */
+    }
+
+
+  agent = gen_printf (get_frame_pc (fi), get_current_arch (), 0, 0,
+		      format_start, format_end - format_start,
+		      fpieces, nargs, argvec);
+  make_cleanup_free_agent_expr (agent);
+  ax_reqs (agent);
+  ax_print (gdb_stdout, agent);
+
+  /* It would be nice to call ax_reqs here to gather some general info
+     about the expression, and then print out the result.  */
+
+  do_cleanups (old_chain);
+  dont_repeat ();
+}
 
 
 /* Initialization code.  */
@@ -2610,5 +2740,10 @@ _initialize_ax_gdb (void)
   add_cmd ("agent-eval", class_maintenance, agent_eval_command,
 	   _("Translate an expression into remote "
 	     "agent bytecode for evaluation."),
+	   &maintenancelist);
+
+  add_cmd ("agent-printf", class_maintenance, maint_agent_printf_command,
+	   _("Translate an expression into remote "
+	     "agent bytecode for evaluation and display the bytecodes."),
 	   &maintenancelist);
 }

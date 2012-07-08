@@ -90,16 +90,6 @@ int in_parse_field;
    '->'.  This is set when parsing and is only used when completing a
    field name.  It is -1 if no dereference operation was found.  */
 static int expout_last_struct = -1;
-
-/* A temporary buffer for identifiers, so we can null-terminate them.
-
-   We allocate this with xrealloc.  parse_exp_1 used to allocate with
-   alloca, using the size of the whole expression as a conservative
-   estimate of the space needed.  However, macro expansion can
-   introduce names longer than the original expression; there's no
-   practical way to know beforehand how large that might be.  */
-char *namecopy;
-size_t namecopy_size;
 
 static int expressiondebug = 0;
 static void
@@ -123,12 +113,11 @@ show_parserdebug (struct ui_file *file, int from_tty,
 
 static void free_funcalls (void *ignore);
 
-static int prefixify_expression (struct expression *);
-
 static int prefixify_subexp (struct expression *, struct expression *, int,
 			     int);
 
-static struct expression *parse_exp_in_context (char **, struct block *, int, 
+static struct expression *parse_exp_in_context (char **, CORE_ADDR,
+						struct block *, int, 
 						int, int *);
 
 void _initialize_parse (void);
@@ -191,6 +180,35 @@ free_funcalls (void *ignore)
 
 /* This page contains the functions for adding data to the struct expression
    being constructed.  */
+
+/* See definition in parser-defs.h.  */
+
+void
+initialize_expout (int initial_size, const struct language_defn *lang,
+		   struct gdbarch *gdbarch)
+{
+  expout_size = initial_size;
+  expout_ptr = 0;
+  expout = xmalloc (sizeof (struct expression)
+		    + EXP_ELEM_TO_BYTES (expout_size));
+  expout->language_defn = lang;
+  expout->gdbarch = gdbarch;
+}
+
+/* See definition in parser-defs.h.  */
+
+void
+reallocate_expout (void)
+{
+  /* Record the actual number of expression elements, and then
+     reallocate the expression memory so that we free up any
+     excess elements.  */
+
+  expout->nelts = expout_ptr;
+  expout = xrealloc ((char *) expout,
+		     sizeof (struct expression)
+		     + EXP_ELEM_TO_BYTES (expout_ptr));
+}
 
 /* Add one element to the end of the expression.  */
 
@@ -744,13 +762,28 @@ find_template_name_end (char *p)
 }
 
 
+/* Return a null-terminated temporary copy of the name of a string token.
 
-/* Return a null-terminated temporary copy of the name
-   of a string token.  */
+   Tokens that refer to names do so with explicit pointer and length,
+   so they can share the storage that lexptr is parsing.
+   When it is necessary to pass a name to a function that expects
+   a null-terminated string, the substring is copied out
+   into a separate block of storage.
+
+   N.B. A single buffer is reused on each call.  */
 
 char *
 copy_name (struct stoken token)
 {
+  /* A temporary buffer for identifiers, so we can null-terminate them.
+     We allocate this with xrealloc.  parse_exp_1 used to allocate with
+     alloca, using the size of the whole expression as a conservative
+     estimate of the space needed.  However, macro expansion can
+     introduce names longer than the original expression; there's no
+     practical way to know beforehand how large that might be.  */
+  static char *namecopy;
+  static size_t namecopy_size;
+
   /* Make sure there's enough space for the token.  */
   if (namecopy_size < token.length + 1)
     {
@@ -764,14 +797,10 @@ copy_name (struct stoken token)
   return namecopy;
 }
 
-/* Reverse an expression from suffix form (in which it is constructed)
-   to prefix form (in which we can conveniently print or execute it).
-   Ordinarily this always returns -1.  However, if EXPOUT_LAST_STRUCT
-   is not -1 (i.e., we are trying to complete a field name), it will
-   return the index of the subexpression which is the left-hand-side
-   of the struct operation at EXPOUT_LAST_STRUCT.  */
 
-static int
+/* See comments on parser-defs.h.  */
+
+int
 prefixify_expression (struct expression *expr)
 {
   int len = sizeof (struct expression) + EXP_ELEM_TO_BYTES (expr->nelts);
@@ -1069,9 +1098,9 @@ prefixify_subexp (struct expression *inexpr,
    If COMMA is nonzero, stop if a comma is reached.  */
 
 struct expression *
-parse_exp_1 (char **stringptr, struct block *block, int comma)
+parse_exp_1 (char **stringptr, CORE_ADDR pc, struct block *block, int comma)
 {
-  return parse_exp_in_context (stringptr, block, comma, 0, NULL);
+  return parse_exp_in_context (stringptr, pc, block, comma, 0, NULL);
 }
 
 /* As for parse_exp_1, except that if VOID_CONTEXT_P, then
@@ -1082,8 +1111,8 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
    is left untouched.  */
 
 static struct expression *
-parse_exp_in_context (char **stringptr, struct block *block, int comma, 
-		      int void_context_p, int *out_subexp)
+parse_exp_in_context (char **stringptr, CORE_ADDR pc, struct block *block,
+		      int comma, int void_context_p, int *out_subexp)
 {
   volatile struct gdb_exception except;
   struct cleanup *old_chain;
@@ -1110,8 +1139,10 @@ parse_exp_in_context (char **stringptr, struct block *block, int comma,
   /* If no context specified, try using the current frame, if any.  */
   if (!expression_context_block)
     expression_context_block = get_selected_block (&expression_context_pc);
-  else
+  else if (pc == 0)
     expression_context_pc = BLOCK_START (expression_context_block);
+  else
+    expression_context_pc = pc;
 
   /* Fall back to using the current source static context, if any.  */
 
@@ -1151,12 +1182,7 @@ parse_exp_in_context (char **stringptr, struct block *block, int comma,
   else
     lang = current_language;
 
-  expout_size = 10;
-  expout_ptr = 0;
-  expout = (struct expression *)
-    xmalloc (sizeof (struct expression) + EXP_ELEM_TO_BYTES (expout_size));
-  expout->language_defn = lang;
-  expout->gdbarch = get_current_arch ();
+  initialize_expout (10, lang, get_current_arch ());
 
   TRY_CATCH (except, RETURN_MASK_ALL)
     {
@@ -1174,14 +1200,7 @@ parse_exp_in_context (char **stringptr, struct block *block, int comma,
 
   discard_cleanups (old_chain);
 
-  /* Record the actual number of expression elements, and then
-     reallocate the expression memory so that we free up any
-     excess elements.  */
-
-  expout->nelts = expout_ptr;
-  expout = (struct expression *)
-    xrealloc ((char *) expout,
-	      sizeof (struct expression) + EXP_ELEM_TO_BYTES (expout_ptr));
+  reallocate_expout ();
 
   /* Convert expression from postfix form as generated by yacc
      parser, to a prefix form.  */
@@ -1211,7 +1230,7 @@ parse_expression (char *string)
 {
   struct expression *exp;
 
-  exp = parse_exp_1 (&string, 0, 0);
+  exp = parse_exp_1 (&string, 0, 0, 0);
   if (*string)
     error (_("Junk after end of expression."));
   return exp;
@@ -1236,7 +1255,7 @@ parse_field_expression (char *string, char **name)
   TRY_CATCH (except, RETURN_MASK_ERROR)
     {
       in_parse_field = 1;
-      exp = parse_exp_in_context (&string, 0, 0, 0, &subexp);
+      exp = parse_exp_in_context (&string, 0, 0, 0, 0, &subexp);
     }
   in_parse_field = 0;
   if (except.reason < 0 || ! exp)
@@ -1282,7 +1301,6 @@ int
 parse_float (const char *p, int len, DOUBLEST *d, const char **suffix)
 {
   char *copy;
-  char *s;
   int n, num;
 
   copy = xmalloc (len + 1);
@@ -1352,6 +1370,49 @@ check_type_stack_depth (void)
     }
 }
 
+/* A helper function for insert_type and insert_type_address_space.
+   This does work of expanding the type stack and inserting the new
+   element, ELEMENT, into the stack at location SLOT.  */
+
+static void
+insert_into_type_stack (int slot, union type_stack_elt element)
+{
+  check_type_stack_depth ();
+
+  if (slot < type_stack_depth)
+    memmove (&type_stack[slot + 1], &type_stack[slot],
+	     (type_stack_depth - slot) * sizeof (union type_stack_elt));
+  type_stack[slot] = element;
+  ++type_stack_depth;
+}
+
+/* Insert a new type, TP, at the bottom of the type stack.  If TP is
+   tp_pointer or tp_reference, it is inserted at the bottom.  If TP is
+   a qualifier, it is inserted at slot 1 (just above a previous
+   tp_pointer) if there is anything on the stack, or simply pushed if
+   the stack is empty.  Other values for TP are invalid.  */
+
+void
+insert_type (enum type_pieces tp)
+{
+  union type_stack_elt element;
+  int slot;
+
+  gdb_assert (tp == tp_pointer || tp == tp_reference
+	      || tp == tp_const || tp == tp_volatile);
+
+  /* If there is anything on the stack (we know it will be a
+     tp_pointer), insert the qualifier above it.  Otherwise, simply
+     push this on the top of the stack.  */
+  if (type_stack_depth && (tp == tp_const || tp == tp_volatile))
+    slot = 1;
+  else
+    slot = 0;
+
+  element.piece = tp;
+  insert_into_type_stack (slot, element);
+}
+
 void
 push_type (enum type_pieces tp)
 {
@@ -1366,10 +1427,32 @@ push_type_int (int n)
   type_stack[type_stack_depth++].int_val = n;
 }
 
+/* Insert a tp_space_identifier and the corresponding address space
+   value into the stack.  STRING is the name of an address space, as
+   recognized by address_space_name_to_int.  If the stack is empty,
+   the new elements are simply pushed.  If the stack is not empty,
+   this function assumes that the first item on the stack is a
+   tp_pointer, and the new values are inserted above the first
+   item.  */
+
 void
-push_type_address_space (char *string)
+insert_type_address_space (char *string)
 {
-  push_type_int (address_space_name_to_int (parse_gdbarch, string));
+  union type_stack_elt element;
+  int slot;
+
+  /* If there is anything on the stack (we know it will be a
+     tp_pointer), insert the address space qualifier above it.
+     Otherwise, simply push this on the top of the stack.  */
+  if (type_stack_depth)
+    slot = 1;
+  else
+    slot = 0;
+
+  element.piece = tp_space_identifier;
+  insert_into_type_stack (slot, element);
+  element.int_val = address_space_name_to_int (parse_gdbarch, string);
+  insert_into_type_stack (slot, element);
 }
 
 enum type_pieces

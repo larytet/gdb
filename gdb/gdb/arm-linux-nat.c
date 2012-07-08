@@ -77,7 +77,7 @@ extern int arm_apcs_32;
    individual thread (process) ID.  get_thread_id () is used to get
    the thread id if it's available, and the process id otherwise.  */
 
-int
+static int
 get_thread_id (ptid_t ptid)
 {
   int tid = TIDGET (ptid);
@@ -1137,7 +1137,7 @@ arm_linux_remove_watchpoint (CORE_ADDR addr, int len, int rw,
 static int
 arm_linux_stopped_data_address (struct target_ops *target, CORE_ADDR *addr_p)
 {
-  struct siginfo *siginfo_p = linux_nat_get_siginfo (inferior_ptid);
+  siginfo_t *siginfo_p = linux_nat_get_siginfo (inferior_ptid);
   int slot = siginfo_p->si_errno;
 
   /* This must be a hardware breakpoint.  */
@@ -1177,9 +1177,9 @@ arm_linux_watchpoint_addr_within_range (struct target_ops *target,
 /* Handle thread creation.  We need to copy the breakpoints and watchpoints
    in the parent thread to the child thread.  */
 static void
-arm_linux_new_thread (ptid_t ptid)
+arm_linux_new_thread (struct lwp_info *lp)
 {
-  int tid = TIDGET (ptid);
+  int tid = TIDGET (lp->ptid);
   const struct arm_linux_hwbp_cap *info = arm_linux_get_hwbp_cap ();
 
   if (info != NULL)
