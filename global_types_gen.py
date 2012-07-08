@@ -79,7 +79,7 @@ def strHex(value, width=8, fillchar='0'):
     valueStr = valueStr.rstrip("L")
     valueStr = valueStr.lower();
     if (width > 0):
-        valueStr = valueStr.ljust(width, fillchar);
+        valueStr = valueStr.rjust(width, fillchar);
 
     return valueStr
 
@@ -1475,8 +1475,9 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
     if ( (type.type != None) and type.type.isStructure() and (len(type.rangeBounds) == 1) ):
         dim = type.rangeBounds[0];
         elemSize = type.type.size;
-        for i in range(dim):
-            generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type.type, location+elemSize*i);
+        if (elemSize != None):
+            for i in range(dim):
+                generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type.type, location+elemSize*i);
     elif (type.type.isBaseType()):
         elemSize = type.type.size;
         lineIndex = False;
@@ -1489,6 +1490,9 @@ def generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, typ
             format = "%04X"
             columns = 16;
         elif (elemSize == 4):
+            format = "%08X"
+            columns = 8;
+        elif (elemSize == None):
             format = "%08X"
             columns = 8;
         if (verboseOutput): print "generateArray", name 
