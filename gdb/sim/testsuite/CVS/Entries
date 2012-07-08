@@ -1,0 +1,13 @@
+/.gitignore/1.1/Mon Mar 19 03:51:09 2012//
+/ChangeLog/1.75/Fri Jun 15 17:20:10 2012/-ko/
+/Makefile.in/1.9/Wed Jan  4 08:28:26 2012/-ko/
+/configure/1.10/Fri Jun 15 17:20:10 2012/-ko/
+/configure.ac/1.2/Mon Apr 26 16:23:23 2010//
+D/common////
+D/config////
+D/d10v-elf////
+D/frv-elf////
+D/lib////
+D/m32r-elf////
+D/mips64el-elf////
+D/sim////
