@@ -1803,7 +1803,7 @@ def mainLoop():
         
         if (cmdOptions.generateShell != None):
             fileName = cmdOptions.generateShell;
-            (openOk, fileShell) = openFile(fileName, "wt")
+            (openOk, fileShell) = openFile(fileName, "wb")
             if (not openOk):
                 print 'Failed to open file "{0}" for writing'.format(fileName);
                 break;
