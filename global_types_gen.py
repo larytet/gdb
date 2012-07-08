@@ -690,7 +690,7 @@ def createLinePatterns():
     patterns.append((LINE_ENUMERATOR ,       "    ([0-9a-f]{8})(.+)DW_TAG_enumerator"                                    , parseDebugInfoEnumerator))
     patterns.append((LINE_NAME ,             "    ([0-9a-f]{8})( +)DW_AT_name +(.+)"                                     , parseDebugInfoName))            
     patterns.append((LINE_VARIABLE ,         "    ([0-9a-f]{8})(.+)DW_TAG_variable"                                      , parseDebugInfoVariable))       
-    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location       DW_OP_addr 0x([0-9a-f]+)"        , parseDebugInfoLocation))       
+    patterns.append((LINE_LOCATION ,         "    ([0-9a-f]{8})( +)DW_AT_location       DW_OP_\S+ 0x([0-9a-f]+)"         , parseDebugInfoLocation))       
     patterns.append((LINE_TYPE ,             "    ([0-9a-f]{8})( +)DW_AT_type +.*debug_info.* +0x([0-9a-f]+)"            , parseDebugInfoType))             
     patterns.append((LINE_TYPEDEF ,          "    ([0-9a-f]{8})(.+)DW_TAG_typedef"                                       , parseDebugInfoTypedef))        
     patterns.append((LINE_POINTERTYPE ,      "    ([0-9a-f]{8})(.+)DW_TAG_pointer_type"                                  , parseDebugInfoPointerType))     
@@ -907,6 +907,7 @@ def parseDebugInfoFsm_STRUCTURE(fileName, lineNum, dictInclude, (lineType,addres
         fsmState.curNode.size = int(g2, 10); 
         pass;
     elif (lineType == LINE_MEMBER):
+        if verboseOutput: print "struct member ", address, strHex(fsmState.curNode.address);  
         fsmState.state = STATE_STRUCTUREMEMBER;
         addressInt = int(address, 16)
         structField = StructureFieldNode(lineNum, addressInt)
@@ -914,6 +915,7 @@ def parseDebugInfoFsm_STRUCTURE(fileName, lineNum, dictInclude, (lineType,addres
         fsmState.curNode.fields.append(structField);
         pass;
     elif (lineType == LINE_MEMBERLOCATION):
+        if verboseOutput: print "struct memberLocation", strHex(fsmState.curNode.address);  
         pass;
     elif (lineType == LINE_TYPE):
         pass;
@@ -928,17 +930,21 @@ def parseDebugInfoFsm_STRUCTUREMEMBER(fileName, lineNum, dictInclude, (lineType,
     global fsmState;
     
     if (lineType == LINE_NAME):
+        if verboseOutput: print "struct member name ", address, g2, strHex(fsmState.curNode.address);  
         fsmState.curStructField.name = g2; 
         pass;
     elif (lineType == LINE_ACCESSIBILITY):
         pass;
     elif (lineType == LINE_MEMBERLOCATION):
+        if verboseOutput: print "struct member location ", address, g2, strHex(fsmState.curNode.address);  
         fsmState.curStructField.location = int(g2, 10); 
         pass;
     elif (lineType == LINE_TYPE):
+        if verboseOutput: print "struct member type ", address, strHex(fsmState.curNode.address);  
         fsmState.curStructField.typeAddress = int(address, 16); 
         pass;
     elif (lineType == LINE_SYMBOLNAME):
+        if verboseOutput: print "struct member symbol name ", address;  
         fsmState.state = STATE_STRUCTURE;
         pass;
     else:
@@ -1114,6 +1120,7 @@ def fsmSwitchByLineDefault(fileName, lineNum, (lineType,addressStr,indent,g2,g3)
         fsmState.state = STATE_TYPEDEF;
         
     elif (lineType == LINE_STRUCTURE):
+        if verboseOutput: print "structure node ", strHex(address);  
         node = StructureNode(lineNum, address);
         fsmState.nodes.types[address] = node; # add to the dictionary 
         fsmState.curNode = node;              # set current Node
@@ -1268,6 +1275,7 @@ def compileNode(fileName, typeRefs, types, node):
     
     if verboseOutput: print "Compile type",strHex(node.address)                 
     if (node.isVolatile()):                                                                                                    
+        if verboseOutput: print "Compile type isvolatile",strHex(node.address)                 
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress                                                                                             
         if (typeAddress == None): return;                                                                                                              
@@ -1285,6 +1293,7 @@ def compileNode(fileName, typeRefs, types, node):
                                                                                                                   
                                                                                                                   
     if (node.isPointer()):                                                                                                         
+        if verboseOutput: print "Compile type ispointer",strHex(node.address)                 
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress                                                                                             
         if (typeAddress == None): return;                                                                                                              
@@ -1296,6 +1305,7 @@ def compileNode(fileName, typeRefs, types, node):
         node.type = type;
                                                                                                                   
     if (node.isArray()):                                                                                                           
+        if verboseOutput: print "Compile type isarray",strHex(node.address)                 
         if (node.type != None): return;                                                                                          
         typeAddress = node.typeAddress                                                                                             
         if verboseOutput: print "array = ",strHex(typeAddress), strHex(node.address)                                              
@@ -1306,6 +1316,7 @@ def compileNode(fileName, typeRefs, types, node):
         node.type = type;
                                                                                                                   
     if (node.isStructure()):                                                                                                       
+        if verboseOutput: print "Compile type isstruct",strHex(node.address)                 
         for field in node.fields:                                                                                                  
             typeAddress = field.typeAddress;                                                                                       
             type = resolveType(typeRefs, types, typeAddress);                                                                      
@@ -1313,6 +1324,7 @@ def compileNode(fileName, typeRefs, types, node):
                 printError(fileName, node.lineNum, False,                                                                          
                     "Structure type "+strHex(node.address)+": No type for field "+ field.name+" address "+strHex(typeAddress));
             else:
+                if verboseOutput: print "struct type is not None ",strHex(typeAddress), type.name                                             
                 compileNode(fileName, typeRefs, types, type) # recursive call
                 if (type.isVolatile()): 
                     field.type = type.type;
@@ -1320,6 +1332,7 @@ def compileNode(fileName, typeRefs, types, node):
                     field.type = type;
                 else:                                                                                                     
                     field.type = type;
+                    if verboseOutput: print "struct field.type ",strHex(typeAddress), type.name, type.isBaseType()                                              
     
 def compileTypes(fileName, typeRefs, types):
     
@@ -1546,24 +1559,34 @@ def generateShellPointer(fileShell, dictInclude, indentation, typeRefs, types, t
 def generateShellStructure(fileShell, dictInclude, indentation, typeRefs, types, type, location, prefix=""):
     indentationStr = getIndentation(indentation);
     writeFileShell(fileShell, indentation, "echo '{2}type={0}, bytes={1}'".format(type.name, type.size, indentationStr))                                   
+    if verboseOutput: print "variableType.isStructure ",strHex(type.address), type.size                                              
     for field in type.fields:
         if (field.type != None):
+            if verboseOutput: print "generateShellStructure ",strHex(field.type.address), location                                              
             
             fieldType = field.type;
-            fieldLocation = location+field.location;
             fieldName = field.name;
+            if (field.location != None):
+                printError("", 1, False, "Skip field: name={0}".format(fieldName));
+                continue;
+                
+            fieldLocation = location+field.location;
             
             if (fieldType.isPointer()):
+                if verboseOutput: print "variableType.isStructure.ispointer ",strHex(type.address), type.size, strHex(fieldType.address)                                              
                 generateShellPointer(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isBaseType()):
+                if verboseOutput: print "variableType.isStructure.isbasetype ",strHex(type.address), type.size, strHex(fieldType.address)                                              
                 generateShellBaseType(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif  (fieldType.isArray()):
+                if verboseOutput: print "variableType.isStructure.isarray ",strHex(type.address), type.size, strHex(fieldType.address)                                              
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
                 generateShellArray(fileShell, dictInclude, indentation, typeRefs, types, fieldType, fieldLocation, fieldName)
                 
             elif (fieldType.isStructure()):
+                if verboseOutput: print "variableType.isStructure.isstruct ",strHex(type.address), type.size, strHex(fieldType.address)                                              
                 writeFileShell(fileShell, indentation, "echo {0}".format(fieldName))                                   
                 generateShellStructure(fileShell, dictInclude, indentation+1, typeRefs, types, fieldType, fieldLocation, fieldName)
 
@@ -1604,6 +1627,7 @@ def generateShellVariable(fileName, dictInclude, fileShell, indentation, typeRef
             break;                                                                                                       
                                                                                                                          
         if (variableType.isStructure()):                                                                                 
+            if verboseOutput: print "variableType.isStructure ",strHex(variableType.address), variableType.name                                              
             writeFileShell(fileShell, indentation, "{0})".format(variableName))                                   
             writeFileShellComment(fileShell, indentation, "{0} type={1}, bytes={2}".format(variable.name, variableType.name, variableType.size))                                   
             generateShellStructure(fileShell, dictInclude, indentation+1, typeRefs, types, variableType, variableLocation);                               
