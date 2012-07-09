@@ -1505,6 +1505,8 @@ case $os in
 		;;
 	-none)
 		;;
+	-wilink)
+	    ;;
 	*)
 		# Get rid of the `-' at the beginning of $os.
 		os=`echo $os | sed 's/[^-]*-//'`

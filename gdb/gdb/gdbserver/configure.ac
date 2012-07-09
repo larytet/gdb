@@ -207,6 +207,11 @@ got it
                     [gdb_cv_i386_is_x86_64=no])
                     CPPFLAGS="$save_CPPFLAGS"])
     ;;
+  
+  arm-wilink)
+	
+    ;;
+  
   m68k-*-*)
     AC_CACHE_CHECK([if building for Coldfire], [gdb_cv_m68k_is_coldfire],
       	           [save_CPPFLAGS="$CPPFLAGS"
