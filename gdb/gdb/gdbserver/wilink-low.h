@@ -74,7 +74,6 @@ struct wilink_target_ops
 
   int num_regs;
   int *regmap;
-  struct reg* regs;
 
   /* Regset support bitmap: 1 for registers that are transferred as a part
      of a regset, 0 for ones that need to be handled individually.  This

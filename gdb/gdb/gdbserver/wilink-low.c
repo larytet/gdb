@@ -27,7 +27,9 @@ int wilink_attach(unsigned long pid) {
 	attached_pid = pid;
 
 	ptid.pid = pid;
-	ptid.lwp = ptid.tid = 0;
+	ptid.lwp = 0;
+	ptid.tid = 1;
+	add_process(pid, 1);
 	add_thread(ptid, NULL);
 
 	return 0;
@@ -67,6 +69,14 @@ ptid_t wilink_wait(ptid_t ptid, struct target_waitstatus *status, int options) {
 	fprintf(stderr, "%s ptid=(%d,%ld,%ld) options=%d\n",
 			__func__, ptid.pid, ptid.lwp, ptid.tid, options);
 
+	//tbd really stop FW
+
+	/* Architecture-specific setup after inferior is running.
+	     This needs to happen after we have attached to the inferior
+	     and it is stopped for the first time, but before we access
+	     any inferior registers.  */
+	the_low_target.arch_setup();
+
 	child = ptid;
 	status->kind = TARGET_WAITKIND_STOPPED;
 	status->value.sig = 30;
@@ -75,18 +85,22 @@ ptid_t wilink_wait(ptid_t ptid, struct target_waitstatus *status, int options) {
 
 void wilink_fetch_registers(struct regcache *regcache, int regno) {
 	int regfirst, regnum, i;
+	const char dummy_reg[] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07};
+
 	fprintf(stderr, "%s regno=%d\n", __func__, regno);
 
 	if (regno==-1) {
+		// if regno==-1, do for all registers
 		regfirst = 0;
 		regnum = the_low_target.num_regs;
 	} else {
+		// otherwise, do just for regno
 		regfirst = regno;
 		regnum = 1;
 	}
 
 	for (i=regfirst; i<regfirst+regnum; i++) {
-		supply_register(regcache, i, NULL); // set as unavailable fixme
+		supply_register(regcache, i, &dummy_reg);
 	}
 }
 
@@ -103,12 +117,17 @@ void wilink_done_accessing_memory(void) {
 
 int wilink_read_memory(CORE_ADDR memaddr, unsigned char *myaddr, int len) {
 	fprintf(stderr, "%s\n", __func__);
-	return -1;
+
+	//todo
+	memset(myaddr,0,len);
+	return 0;
 }
 
 int wilink_write_memory(CORE_ADDR memaddr, const unsigned char *myaddr, int len) {
 	fprintf(stderr, "%s\n", __func__);
-	return -1;
+
+	//todo
+	return 0;
 }
 
 void wilink_request_interrupt(void) {
@@ -173,5 +192,4 @@ initialize_low (void)
   set_target_ops (&wilink_target_ops);
   set_breakpoint_data (the_low_target.breakpoint,
 		       the_low_target.breakpoint_len);
-  set_register_cache(the_low_target.regs, the_low_target.num_regs);
 }

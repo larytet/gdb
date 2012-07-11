@@ -108,7 +108,7 @@ struct arch_lwp_info
   CORE_ADDR stopped_data_address;
 };
 
-static unsigned long arm_hwcap;
+//static unsigned long arm_hwcap;
 
 /* These are in <asm/elf.h> in current kernels.  */
 #define HWCAP_VFP       64
@@ -128,35 +128,6 @@ static int arm_regmap[] = {
   32, 36, 40, 44, 48, 52, 56, 60,
   -1, -1, -1, -1, -1, -1, -1, -1, -1,
   64
-};
-
-static struct reg arm_regs[] = {
-		{"r0",0,4},
-		{"r1",0,4},
-		{"r2",0,4},
-		{"r3",0,4},
-		{"r4",0,4},
-		{"r5",0,4},
-		{"r6",0,4},
-		{"r7",0,4},
-		{"r8",0,4},
-		{"r9",0,4},
-		{"r10",0,4},
-		{"r11",0,4},
-		{"r12",0,4},
-		{"r13",0,4},
-		{"r14",0,4},
-		{"r15",0,4},
-		{"r16",0,4},
-		{"r17",0,4},
-		{"r18",0,4},
-		{"r19",0,4},
-		{"r20",0,4},
-		{"r21",0,4},
-		{"r22",0,4},
-		{"r23",0,4},
-		{"r24",0,4},
-		{"r25",0,4}
 };
 
 static int
@@ -372,27 +343,27 @@ ps_get_thread_area (const struct ps_prochandle *ph,
 
 /* Query Hardware Breakpoint information for the target we are attached to
    (using PID as ptrace argument) and set up arm_linux_hwbp_cap.  */
-static void
-arm_linux_init_hwbp_cap (int pid)
-{
-  unsigned int val;
-
-  if (ptrace (PTRACE_GETHBPREGS, pid, 0, &val) < 0)
-    return;
-
-  arm_linux_hwbp_cap.arch = (unsigned char)((val >> 24) & 0xff);
-  if (arm_linux_hwbp_cap.arch == 0)
-    return;
-
-  arm_linux_hwbp_cap.max_wp_length = (unsigned char)((val >> 16) & 0xff);
-  arm_linux_hwbp_cap.wp_count = (unsigned char)((val >> 8) & 0xff);
-  arm_linux_hwbp_cap.bp_count = (unsigned char)(val & 0xff);
-
-  if (arm_linux_hwbp_cap.wp_count > MAX_WPTS)
-    internal_error (__FILE__, __LINE__, "Unsupported number of watchpoints");
-  if (arm_linux_hwbp_cap.bp_count > MAX_BPTS)
-    internal_error (__FILE__, __LINE__, "Unsupported number of breakpoints");
-}
+//static void
+//arm_linux_init_hwbp_cap (int pid)
+//{
+//  unsigned int val;
+//
+//  if (ptrace (PTRACE_GETHBPREGS, pid, 0, &val) < 0)
+//    return;
+//
+//  arm_linux_hwbp_cap.arch = (unsigned char)((val >> 24) & 0xff);
+//  if (arm_linux_hwbp_cap.arch == 0)
+//    return;
+//
+//  arm_linux_hwbp_cap.max_wp_length = (unsigned char)((val >> 16) & 0xff);
+//  arm_linux_hwbp_cap.wp_count = (unsigned char)((val >> 8) & 0xff);
+//  arm_linux_hwbp_cap.bp_count = (unsigned char)(val & 0xff);
+//
+//  if (arm_linux_hwbp_cap.wp_count > MAX_WPTS)
+//    internal_error (__FILE__, __LINE__, "Unsupported number of watchpoints");
+//  if (arm_linux_hwbp_cap.bp_count > MAX_BPTS)
+//    internal_error (__FILE__, __LINE__, "Unsupported number of breakpoints");
+//}
 
 /* How many hardware breakpoints are available?  */
 static int
@@ -775,79 +746,31 @@ arm_prepare_to_resume (struct lwp_info *lwp)
 }
 
 
-static int
-arm_get_hwcap (unsigned long *valp)
-{
-  unsigned char *data = alloca (8);
-  int offset = 0;
-
-  while ((*the_target->read_auxv) (offset, data, 8) == 8)
-    {
-      unsigned int *data_p = (unsigned int *)data;
-      if (data_p[0] == AT_HWCAP)
-	{
-	  *valp = data_p[1];
-	  return 1;
-	}
-
-      offset += 8;
-    }
-
-  *valp = 0;
-  return 0;
-}
+//static int
+//arm_get_hwcap (unsigned long *valp)
+//{
+//  unsigned char *data = alloca (8);
+//  int offset = 0;
+//
+//  while ((*the_target->read_auxv) (offset, data, 8) == 8)
+//    {
+//      unsigned int *data_p = (unsigned int *)data;
+//      if (data_p[0] == AT_HWCAP)
+//	{
+//	  *valp = data_p[1];
+//	  return 1;
+//	}
+//
+//      offset += 8;
+//    }
+//
+//  *valp = 0;
+//  return 0;
+//}
 
 static void
 arm_arch_setup (void)
 {
-  int pid = lwpid_of (get_thread_lwp (current_inferior));
-
-  /* Query hardware watchpoint/breakpoint capabilities.  */
-  arm_linux_init_hwbp_cap (pid);
-
-  arm_hwcap = 0;
-  if (arm_get_hwcap (&arm_hwcap) == 0)
-    {
-      init_registers_arm ();
-      return;
-    }
-
-  if (arm_hwcap & HWCAP_IWMMXT)
-    {
-      init_registers_arm_with_iwmmxt ();
-      return;
-    }
-
-  if (arm_hwcap & HWCAP_VFP)
-    {
-      char *buf;
-
-      /* NEON implies either no VFP, or VFPv3-D32.  We only support
-	 it with VFP.  */
-      if (arm_hwcap & HWCAP_NEON)
-	init_registers_arm_with_neon ();
-      else if ((arm_hwcap & (HWCAP_VFPv3 | HWCAP_VFPv3D16)) == HWCAP_VFPv3)
-	init_registers_arm_with_vfpv3 ();
-      else
-	init_registers_arm_with_vfpv2 ();
-
-      /* Now make sure that the kernel supports reading these
-	 registers.  Support was added in 2.6.30.  */
-      errno = 0;
-      buf = xmalloc (32 * 8 + 4);
-      if (ptrace (PTRACE_GETVFPREGS, pid, 0, buf) < 0
-	  && errno == EIO)
-	{
-	  arm_hwcap = 0;
-	  init_registers_arm ();
-	}
-      free (buf);
-
-      return;
-    }
-
-  /* The default configuration uses legacy FPA registers, probably
-     simulated.  */
   init_registers_arm ();
 }
 
@@ -868,7 +791,6 @@ struct wilink_target_ops the_low_target = {
   arm_arch_setup,
   arm_num_regs,
   arm_regmap,
-  arm_regs,
   NULL,
   arm_cannot_fetch_register,
   arm_cannot_store_register,
