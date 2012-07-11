@@ -69,7 +69,7 @@ ptid_t wilink_wait(ptid_t ptid, struct target_waitstatus *status, int options) {
 	fprintf(stderr, "%s ptid=(%d,%ld,%ld) options=%d\n",
 			__func__, ptid.pid, ptid.lwp, ptid.tid, options);
 
-	//tbd really stop FW
+	//todo really stop FW
 
 	/* Architecture-specific setup after inferior is running.
 	     This needs to happen after we have attached to the inferior
@@ -100,6 +100,7 @@ void wilink_fetch_registers(struct regcache *regcache, int regno) {
 	}
 
 	for (i=regfirst; i<regfirst+regnum; i++) {
+		//todo really read register i
 		supply_register(regcache, i, &dummy_reg);
 	}
 }
@@ -109,14 +110,16 @@ void wilink_store_registers(struct regcache *regcache, int regno) {
 }
 
 int wilink_prepare_to_access_memory(void) {
+	fprintf(stderr, "%s\n", __func__);
 	return 0;
 }
 
 void wilink_done_accessing_memory(void) {
+	fprintf(stderr, "%s\n", __func__);
 }
 
 int wilink_read_memory(CORE_ADDR memaddr, unsigned char *myaddr, int len) {
-	fprintf(stderr, "%s\n", __func__);
+	fprintf(stderr, "%s 0x%x %d\n", __func__, (unsigned int)memaddr, len);
 
 	//todo
 	memset(myaddr,0,len);
@@ -124,7 +127,7 @@ int wilink_read_memory(CORE_ADDR memaddr, unsigned char *myaddr, int len) {
 }
 
 int wilink_write_memory(CORE_ADDR memaddr, const unsigned char *myaddr, int len) {
-	fprintf(stderr, "%s\n", __func__);
+	fprintf(stderr, "%s 0x%x %d\n", __func__, (unsigned int)memaddr, len);
 
 	//todo
 	return 0;

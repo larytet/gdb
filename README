@@ -1,0 +1,21 @@
+===== Quick HOWTO =====
+
+# compile GDBSERVER for WiLink target
+
+$ cd OpenTI
+$ mkdir out
+$ cd out
+$ ../gdb/gdb/gdbserver/configure arm-wilink
+$ make -s
+
+
+# run GDBSERVER and attach to the WiLink target
+
+$ ./gdbserver --attach :9999 1
+
+
+# connect a GDB client to the GDBSERVER
+
+$ gdb -ex "target remote :9999"
+
+
